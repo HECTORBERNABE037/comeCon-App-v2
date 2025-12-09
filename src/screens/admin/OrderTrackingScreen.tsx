@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -18,8 +18,14 @@ import { COLORS, FONT_SIZES, Order } from '../../../types';
 import { AdminBottomNavBar } from '../../components/AdminBottomNavBar';
 import { OrderActionModal } from '../../components/OrderActionModal';
 import DatabaseService from '../../services/DatabaseService';
+import { sendLocalNotification } from '../../utils/NotificationHelper'; // Importar Helper
+import { useAuth } from '../../context/AuthContext'; // Importar Contexto
 
+// Helper para imágenes locales
 const resolveImage = (imageName: string) => {
+  // Si es una URI de archivo (foto de cámara), la usamos directo
+  if (imageName?.startsWith('file://')) return { uri: imageName };
+  
   switch (imageName) {
     case 'bowlFrutas': return require('../../../assets/bowlFrutas.png');
     case 'tostadaAguacate': return require('../../../assets/tostadaAguacate.png');
@@ -30,6 +36,7 @@ const resolveImage = (imageName: string) => {
 };
 
 export const OrderTrackingScreen = () => {
+  const { user } = useAuth(); // Obtenemos configuración del usuario
   const [activeTab, setActiveTab] = useState<'process' | 'history'>('process');
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,19 +67,30 @@ export const OrderTrackingScreen = () => {
     }, [])
   );
 
-  // --- CORRECCIÓN DEL FILTRO ---
-  const filteredOrders = allOrders.filter(order => {
-    // Definimos qué se considera "En proceso"
-    const processStatuses = ['process', 'pending', 'En proceso', 'Pendiente'];
-    
-    // 1. Filtro por Tab (Lógica Robustecida)
-    const isProcess = processStatuses.includes(order.status);
-    
-    const matchesTab = activeTab === 'process' 
-      ? isProcess 
-      : !isProcess; // Historial = Todo lo que NO esté en proceso (completed, cancelled, "Finalizada", etc.)
+  // --- SIMULACIÓN DE NOTIFICACIONES ---
+  // En una app real, esto vendría de un socket o push notification del backend
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      // Solo notificamos si el usuario dio permiso en Settings
+      if (user?.allowNotifications) {
+        await sendLocalNotification(
+          "Nueva Orden Recibida 🔔", 
+          "Tienes un nuevo pedido pendiente de revisión."
+        );
+        // Opcional: Recargar órdenes si hubieran llegado de verdad
+        // loadOrders(); 
+      }
+    }, 10000); // Simula una orden a los 10 segundos de entrar
 
-    // 2. Filtro por Búsqueda
+    return () => clearTimeout(timer);
+  }, [user]); // Se re-ejecuta si cambia el usuario o sus permisos
+
+  // FILTRADO
+  const filteredOrders = allOrders.filter(order => {
+    const processStatuses = ['process', 'pending', 'En proceso', 'Pendiente'];
+    const isProcess = processStatuses.includes(order.status);
+    const matchesTab = activeTab === 'process' ? isProcess : !isProcess; 
+
     const matchesSearch = searchQuery === "" || 
       order.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
@@ -80,6 +98,7 @@ export const OrderTrackingScreen = () => {
     return matchesTab && matchesSearch;
   });
 
+  // Acciones
   const handleOpenActionModal = (order: Order) => {
     setSelectedOrder(order);
     setIsModalVisible(true);
@@ -87,46 +106,35 @@ export const OrderTrackingScreen = () => {
 
   const handleUpdateOrder = async (orderId: string, data: any) => {
     try {
-      await DatabaseService.updateOrderStatus(
-        Number(orderId), 
-        data.status, 
-        data.comment, 
-        data.estimatedTime
-      );
-      Alert.alert("Éxito", "La orden ha sido actualizada.");
+      await DatabaseService.updateOrderStatus(Number(orderId), data.status, data.comment, data.estimatedTime);
+      Alert.alert("Éxito", "Orden actualizada.");
       setIsModalVisible(false);
       setSelectedOrder(null);
       loadOrders(); 
     } catch (error) {
-      Alert.alert("Error", "No se pudo actualizar la orden.");
+      Alert.alert("Error", "No se pudo actualizar.");
     }
   };
 
   const handleCompleteOrder = (orderId: string) => {
-    Alert.alert("Completar", "¿Marcar orden como entregada?", [
+    Alert.alert("Completar", "¿Marcar como entregada?", [
       { text: "Cancelar", style: "cancel" },
       { text: "Sí", onPress: async () => {
         try {
-          // Usamos 'completed' como clave estándar
           await DatabaseService.updateOrderStatus(Number(orderId), 'completed', 'Completado por Admin', 'Entregado ahora');
-          setIsModalVisible(false);
-          setSelectedOrder(null);
-          loadOrders();
+          setIsModalVisible(false); setSelectedOrder(null); loadOrders();
         } catch (error) { Alert.alert("Error", "Fallo al completar"); }
       }}
     ]);
   };
 
   const handleCancelOrder = (orderId: string) => {
-    Alert.alert("Cancelar", "¿Estás seguro de cancelar esta orden?", [
+    Alert.alert("Cancelar", "¿Cancelar esta orden?", [
       { text: "No", style: "cancel" },
       { text: "Sí", style: 'destructive', onPress: async () => {
         try {
-          // Usamos 'cancelled' como clave estándar
           await DatabaseService.updateOrderStatus(Number(orderId), 'cancelled', 'Cancelado por Admin', 'Cancelado ahora');
-          setIsModalVisible(false);
-          setSelectedOrder(null);
-          loadOrders();
+          setIsModalVisible(false); setSelectedOrder(null); loadOrders();
         } catch (error) { Alert.alert("Error", "Fallo al cancelar"); }
       }}
     ]);
@@ -148,9 +156,7 @@ export const OrderTrackingScreen = () => {
         </View>
       );
     } else {
-      // Detectamos cancelado si el status incluye 'cancel' (para atrapar 'cancelled' o 'Cancelado')
       const isCancelled = item.status.toLowerCase().includes('cancel');
-      
       return (
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
@@ -162,17 +168,12 @@ export const OrderTrackingScreen = () => {
             </View>
           </View>
           <View style={styles.historyDetails}>
-            {/* Mostramos el status tal cual viene de la BD o formateado */}
             <Text style={[styles.statusTitle, isCancelled && {color: 'red'}]}>
               {isCancelled ? 'Cancelado' : (item.status === 'completed' ? 'Entregado' : item.status)}
             </Text>
-            <Text style={styles.statusTime}>
-              {item.deliveryTime || 'Sin hora registrada'}
-            </Text>
+            <Text style={styles.statusTime}>{item.deliveryTime || 'Sin hora'}</Text>
             <View style={styles.separator} />
-            <Text style={styles.historyNotes}>
-              {item.historyNotes || 'Sin notas adicionales'}
-            </Text>
+            <Text style={styles.historyNotes}>{item.historyNotes || '-'}</Text>
           </View>
         </View>
       );
@@ -182,21 +183,13 @@ export const OrderTrackingScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8F8F8"/>
-      
       <Text style={styles.mainTitle}>Ordenes Recibidas</Text>
 
       <View style={styles.tabsContainer}>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'process' && styles.activeTabBorder]} 
-          onPress={() => setActiveTab('process')}
-        >
+        <TouchableOpacity style={[styles.tabButton, activeTab === 'process' && styles.activeTabBorder]} onPress={() => setActiveTab('process')}>
           <Text style={[styles.tabText, activeTab === 'process' && styles.activeTabText]}>En proceso</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'history' && styles.activeTabBorder]} 
-          onPress={() => setActiveTab('history')}
-        >
+        <TouchableOpacity style={[styles.tabButton, activeTab === 'history' && styles.activeTabBorder]} onPress={() => setActiveTab('history')}>
           <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>Historial</Text>
         </TouchableOpacity>
       </View>
@@ -211,9 +204,7 @@ export const OrderTrackingScreen = () => {
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")}>
-            <Ionicons name="close-circle" size={18} color="#999" />
-          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setSearchQuery("")}><Ionicons name="close-circle" size={18} color="#999" /></TouchableOpacity>
         )}
       </View>
 
@@ -226,27 +217,14 @@ export const OrderTrackingScreen = () => {
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              {searchQuery 
-                ? 'No se encontraron órdenes.' 
-                : (activeTab === 'process' ? 'No hay órdenes pendientes' : 'Historial vacío')}
-            </Text>
-          }
+          ListEmptyComponent={<Text style={styles.emptyText}>{searchQuery ? 'No se encontraron órdenes.' : (activeTab === 'process' ? 'No hay órdenes pendientes' : 'Historial vacío')}</Text>}
         />
       )}
-
       <AdminBottomNavBar activeRoute="Orders" />
-
       <OrderActionModal
-        visible={isModalVisible}
-        order={selectedOrder}
-        onClose={() => setIsModalVisible(false)}
-        onUpdate={handleUpdateOrder}
-        onComplete={handleCompleteOrder}
-        onCancel={handleCancelOrder}
+        visible={isModalVisible} order={selectedOrder} onClose={() => setIsModalVisible(false)}
+        onUpdate={handleUpdateOrder} onComplete={handleCompleteOrder} onCancel={handleCancelOrder}
       />
-
     </SafeAreaView>
   );
 };
@@ -264,7 +242,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: FONT_SIZES.medium, color: COLORS.text },
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
   emptyText: { textAlign: 'center', marginTop: 50, color: '#999', fontSize: FONT_SIZES.medium },
-  
   card: { backgroundColor: COLORS.white, borderRadius: 20, padding: 15, marginBottom: 15, flexDirection: 'row', alignItems: 'center', elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
   cardImage: { width: 70, height: 70, borderRadius: 35, marginRight: 15 },
   cardInfo: { flex: 1 },
@@ -272,7 +249,6 @@ const styles = StyleSheet.create({
   cardSubtitle: { fontSize: FONT_SIZES.small, color: COLORS.textSecondary, marginBottom: 5 },
   cardPrice: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.primary },
   cardAction: { padding: 10 },
-
   historyCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 20, marginBottom: 15, elevation: 2 },
   historyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   historyImage: { width: 80, height: 80, borderRadius: 40, marginRight: 15 },

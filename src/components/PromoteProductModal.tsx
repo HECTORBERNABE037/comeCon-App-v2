@@ -1,22 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Modal, 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TextInput, 
-  TouchableOpacity, 
-  Alert, 
-  Platform,
-  KeyboardAvoidingView,
-  Switch,
-  ScrollView
+  Modal, View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, Switch, ScrollView
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Platillo, PromotionFormData, COLORS, FONT_SIZES } from '../../types';
 import { useForm } from '../hooks/useForm';
 import { validatePromotionForm } from '../utils/validationRules';
+import { showImageOptions } from '../utils/ImagePickerHelper';
+import { useAuth } from '../context/AuthContext';
 import DatabaseService from '../services/DatabaseService'; 
 
 interface Props {
@@ -27,195 +18,111 @@ interface Props {
   onDelete: (productId: string) => void;
 }
 
-export const PromoteProductModal: React.FC<Props> = ({ 
-  visible, 
-  product, 
-  onClose, 
-  onSave, 
-  onDelete 
-}) => {
-  
-  // Estado para la visibilidad (Switch)
+export const PromoteProductModal: React.FC<Props> = ({ visible, product, onClose, onSave, onDelete }) => {
+  const { user } = useAuth();
   const [isActive, setIsActive] = useState(true);
+  const [newImageUri, setNewImageUri] = useState<string | null>(null);
 
-  // Hook de formulario con validación
+  const basePrice = product ? parseFloat(product.price) : 0;
+
   const { formData, errors, updateFormData, validate, setFormData } = useForm<PromotionFormData>(
     { promotionalPrice: '', startDate: '', endDate: '' },
-    (data) => validatePromotionForm(data, product ? parseFloat(product.price) : 0)
+    (data) => validatePromotionForm(data, basePrice)
   );
 
-  // EFECTO: Cargar datos cuando se abre el modal
   useEffect(() => {
     const loadData = async () => {
       if (product && visible) {
-        // 1. Calcular fechas por defecto (Hoy y +15 días)
+        setNewImageUri(null); // Reset
         const now = new Date();
-        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        
+        const currentDate = now.toISOString().split('T')[0]; 
         const future = new Date();
         future.setDate(now.getDate() + 15);
         const defaultEndDate = future.toISOString().split('T')[0];
 
         try {
-          // 2. Buscar si ya existe una promoción en BD para este producto
           const existingPromo = await DatabaseService.getPromotionByProductId(Number(product.id));
-
           if (existingPromo) {
-            // CASO A: Ya existe -> Cargar datos guardados
-            console.log("Cargando promoción existente:", existingPromo);
             setFormData({
               promotionalPrice: existingPromo.promotionalPrice.toString(),
               startDate: existingPromo.startDate,
               endDate: existingPromo.endDate
             });
-            // SQLite guarda 1/0, convertimos a boolean
             setIsActive(existingPromo.visible === 1);
           } else {
-            // CASO B: Nueva promoción -> Valores por defecto
-            console.log("Nueva promoción, estableciendo defaults");
             setFormData({
               promotionalPrice: '',
-              startDate: currentDate, // FECHA DE HOY AUTOMÁTICA
+              startDate: currentDate,
               endDate: defaultEndDate
             });
-            // Switch activado por defecto para nuevas promos
             setIsActive(true);
           }
-        } catch (error) {
-          console.error("Error cargando promoción:", error);
-          Alert.alert("Error", "No se pudieron cargar los datos de la promoción.");
-        }
+        } catch (error) { console.error(error); }
       }
     };
-
     loadData();
   }, [product, visible]);
 
   const handleSave = () => {
     if (validate() && product) {
-      const promoData = { 
-        ...formData, 
-        visible: isActive, 
-        id: product.id 
-      };
-      onSave(product.id.toString(), promoData);
+      // Nota: PromoteProduct usualmente no actualiza la imagen del producto, solo crea la promo.
+      // Pero si el usuario cambia la foto aquí, deberíamos actualizar el producto también.
+      // Para este caso, asumiremos que solo se guardan datos de promo y la imagen es visual.
+      // Si quisieras guardar la imagen, tendrías que llamar a un updateProduct extra.
+      onSave(product.id.toString(), { ...formData, visible: isActive, id: product.id });
     } else {
-      Alert.alert("Atención", "Revisa los errores en el formulario.");
+      Alert.alert("Atención", "Revisa el formulario. La oferta debe ser menor a $" + basePrice);
     }
   };
 
-  const handleDelete = () => {
-    if (!product) return;
-    Alert.alert(
-      "Eliminar Promoción",
-      "¿Deseas quitar la promoción de este producto?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Eliminar", style: "destructive", onPress: () => onDelete(product.id.toString()) }
-      ]
-    );
-  };
-
   const handleEditImage = () => {
-    Alert.alert("Cambiar Imagen", "Próximamente...");
+    if (!user?.allowCamera) {
+      Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración.");
+      return;
+    }
+    showImageOptions(setNewImageUri);
   };
 
   if (!product) return null;
+  const displayImage = newImageUri ? { uri: newImageUri } : product.image;
 
   return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.modalOverlay}
-      >
+    <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            
             <Text style={styles.modalTitle}>Edita tu Promoción</Text>
-            
             <View style={styles.headerContent}>
               <Text style={styles.productTitle}>{product.title}</Text>
-              
               <View style={styles.imageContainer}>
-                <Image source={product.image} style={[
-                  styles.productImage,
-                  !isActive && { opacity: 0.5 }
-                ]} />
-                
+                <Image source={displayImage} style={[styles.productImage, !isActive && { opacity: 0.5 }]} />
                 <TouchableOpacity style={styles.editImageButton} onPress={handleEditImage}>
                   <Feather name="edit-2" size={18} color={COLORS.text} />
                 </TouchableOpacity>
-
-                {!isActive && (
-                  <View style={styles.hiddenBadge}>
-                    <Text style={styles.hiddenText}>OCULTO</Text>
-                  </View>
-                )}
+                {!isActive && (<View style={styles.hiddenBadge}><Text style={styles.hiddenText}>OCULTO</Text></View>)}
               </View>
             </View>
 
             <Text style={styles.label}>Precio normal</Text>
             <View style={[styles.inputContainer, styles.readOnlyInput]}>
-              <Text style={styles.readOnlyText}>${product.price}</Text>
+              <Text style={styles.readOnlyText}>${basePrice.toFixed(2)}</Text>
             </View>
 
             <Text style={styles.label}>Precio promocional</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.promotionalPrice}
-              onChangeText={(text) => updateFormData('promotionalPrice', text)}
-              keyboardType="numeric"
-              placeholder="Ej. 120.99"
-            />
+            <TextInput style={styles.input} value={formData.promotionalPrice} onChangeText={(text) => updateFormData('promotionalPrice', text)} keyboardType="numeric" placeholder="Ej. 90.00" />
             {errors.promotionalPrice && <Text style={styles.errorText}>{errors.promotionalPrice}</Text>}
 
             <Text style={styles.label}>Fecha inicio</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.startDate}
-              onChangeText={(text) => updateFormData('startDate', text)}
-              placeholder="YYYY-MM-DD"
-            />
-            {errors.startDate && <Text style={styles.errorText}>{errors.startDate}</Text>}
-
+            <TextInput style={styles.input} value={formData.startDate} onChangeText={(t) => updateFormData('startDate', t)} placeholder="YYYY-MM-DD" />
             <Text style={styles.label}>Fecha fin</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.endDate}
-              onChangeText={(text) => updateFormData('endDate', text)}
-              placeholder="YYYY-MM-DD"
-            />
-            {errors.endDate && <Text style={styles.errorText}>{errors.endDate}</Text>}
+            <TextInput style={styles.input} value={formData.endDate} onChangeText={(t) => updateFormData('endDate', t)} placeholder="YYYY-MM-DD" />
 
             <View style={styles.footerControls}>
-              <Switch
-                trackColor={{ false: "#767577", true: COLORS.primary }}
-                thumbColor={isActive ? "#f4f3f4" : "#f4f3f4"}
-                onValueChange={setIsActive}
-                value={isActive}
-                style={{ transform: [{ scaleX: 1.2 }, { scaleY: 1.2 }] }}
-              />
-
-              <TouchableOpacity style={styles.actionButton} onPress={handleSave}>
-                <View style={styles.iconBorderGreen}>
-                   <Feather name="check" size={28} color="#00C853" />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-                 <Ionicons name="trash-outline" size={32} color="#D50000" />
-              </TouchableOpacity>
+              <Switch trackColor={{ false: "#767577", true: COLORS.primary }} thumbColor={"#f4f3f4"} onValueChange={setIsActive} value={isActive} />
+              <TouchableOpacity style={styles.actionButton} onPress={handleSave}><View style={styles.iconBorderGreen}><Feather name="check" size={28} color="#00C853" /></View></TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton} onPress={() => onDelete(product.id.toString())}><Ionicons name="trash-outline" size={32} color="#D50000" /></TouchableOpacity>
             </View>
-
-            <TouchableOpacity style={styles.closeTextButton} onPress={onClose}>
-              <Text style={styles.closeText}>Cancelar</Text>
-            </TouchableOpacity>
-
+            <TouchableOpacity style={styles.closeTextButton} onPress={onClose}><Text style={styles.closeText}>Cancelar</Text></TouchableOpacity>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -224,141 +131,26 @@ export const PromoteProductModal: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    width: '90%',
-    maxHeight: '85%',
-    backgroundColor: COLORS.white,
-    borderRadius: 25,
-    padding: 20,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  scrollContent: {
-    alignItems: 'center',
-    paddingBottom: 20,
-  },
-  modalTitle: {
-    fontSize: FONT_SIZES.xlarge,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  headerContent: {
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  productTitle: {
-    fontSize: FONT_SIZES.large,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 10,
-  },
-  imageContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  productImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  editImageButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    elevation: 4,
-  },
-  hiddenBadge: {
-    position: 'absolute',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  hiddenText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  label: {
-    alignSelf: 'flex-start',
-    fontSize: FONT_SIZES.medium,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 5,
-    marginTop: 10,
-  },
-  inputContainer: {
-    width: '100%',
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    paddingHorizontal: 15,
-  },
-  input: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#F5F5F5', 
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: FONT_SIZES.medium,
-    color: COLORS.text,
-  },
-  readOnlyInput: {
-    backgroundColor: '#EEEEEE',
-  },
-  readOnlyText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.medium,
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.small,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  footerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 30,
-    paddingHorizontal: 20,
-  },
-  actionButton: {
-    padding: 5,
-  },
-  iconBorderGreen: {
-    borderWidth: 2,
-    borderColor: '#00C853',
-    borderRadius: 8,
-    padding: 2,
-  },
-  closeTextButton: {
-    marginTop: 20,
-  },
-  closeText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.medium,
-    textDecorationLine: 'underline',
-  }
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { width: '90%', maxHeight: '85%', backgroundColor: COLORS.white, borderRadius: 25, padding: 20 },
+  scrollContent: { alignItems: 'center', paddingBottom: 20 },
+  modalTitle: { fontSize: FONT_SIZES.xlarge, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
+  headerContent: { alignItems: 'center', marginBottom: 15 },
+  productTitle: { fontSize: FONT_SIZES.large, fontWeight: '600', color: COLORS.text, marginBottom: 10 },
+  imageContainer: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  productImage: { width: 100, height: 100, borderRadius: 50 },
+  editImageButton: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.white, width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', elevation: 4 },
+  hiddenBadge: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  hiddenText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+  label: { alignSelf: 'flex-start', fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.text, marginBottom: 5, marginTop: 10 },
+  inputContainer: { width: '100%', height: 50, borderRadius: 8, justifyContent: 'center', paddingHorizontal: 15 },
+  input: { width: '100%', height: 50, backgroundColor: '#F5F5F5', borderRadius: 8, paddingHorizontal: 15, fontSize: FONT_SIZES.medium, color: COLORS.text },
+  readOnlyInput: { backgroundColor: '#EEEEEE' },
+  readOnlyText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.medium },
+  errorText: { color: COLORS.error, fontSize: FONT_SIZES.small, alignSelf: 'flex-start', marginTop: 2 },
+  footerControls: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 30, paddingHorizontal: 20 },
+  actionButton: { padding: 5 },
+  iconBorderGreen: { borderWidth: 2, borderColor: '#00C853', borderRadius: 8, padding: 2 },
+  closeTextButton: { marginTop: 20 },
+  closeText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.medium, textDecorationLine: 'underline' }
 });

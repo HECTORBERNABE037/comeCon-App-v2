@@ -182,6 +182,17 @@ class DatabaseService {
     }
   }
 
+  async updateUserImage(email: string, imageUri: string): Promise<boolean> {
+    if (!this.db) return false;
+    try {
+      await this.db.runAsync('UPDATE users SET image = ? WHERE email = ?', [imageUri, email]);
+      return true;
+    } catch (error) {
+      console.error("Error updating image:", error);
+      return false;
+    }
+  }
+
   async registerUser(userData: { name: string, email: string, phone: string, password: string }): Promise<boolean> {
     if (!this.db) return false;
     try {
@@ -241,22 +252,25 @@ class DatabaseService {
     } catch (error) { throw error; }
   }
 
-  async updateProduct(id: number, product: Partial<ProductFormData>): Promise<void> {
+  async updateProduct(id: number, product: Partial<ProductFormData> & { image?: string }): Promise<void> {
     if (!this.db) return;
     try {
-      const title = product.title || '';
-      const subtitle = product.subtitle || '';
-      const description = product.description || '';
-      const price = product.price ? parseFloat(product.price) : 0;
-      const visible = product.visible ? 1 : 0;
+      let query = 'UPDATE products SET title=?, subtitle=?, price=?, description=?, visible=?';
+      const params: any[] = [product.title, product.subtitle, parseFloat(product.price!), product.description, product.visible?1:0];
+      
+      // Si viene imagen, la actualizamos
+      if (product.image) {
+        query += ', image=?';
+        params.push(product.image);
+      }
+      
+      query += ' WHERE id=?';
+      params.push(id);
 
-      await this.db.runAsync(
-        'UPDATE products SET title = ?, subtitle = ?, price = ?, description = ?, visible = ? WHERE id = ?',
-        [title, subtitle, price, description, visible, id]
-      );
+      await this.db.runAsync(query, params);
     } catch (error) { throw error; }
   }
-
+  
   async deleteProduct(id: number): Promise<void> {
     if (!this.db) return;
     await this.db.runAsync('DELETE FROM products WHERE id = ?', [id]);
