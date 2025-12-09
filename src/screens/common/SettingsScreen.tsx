@@ -7,7 +7,7 @@ import DatabaseService from '../../services/DatabaseService';
 
 export const SettingsScreen = ({ navigation }: { navigation: any }) => {
   const { user, refreshUser } = useAuth();
-  
+  //1
   // Estados iniciales basados en la info del usuario (si es null, asumimos true por defecto)
   const [notificationsEnabled, setNotificationsEnabled] = useState(user?.allowNotifications ?? true);
   const [cameraEnabled, setCameraEnabled] = useState(user?.allowCamera ?? true);
