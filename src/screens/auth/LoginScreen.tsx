@@ -50,9 +50,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         setIsLoading(false);
 
         if (user?.role === 'administrador') {
-          navigation.replace("HomeAdmin");
+          navigation.replace("AdminTabsNavigator");
         } else {
-          navigation.replace("Home");
+          navigation.replace("ClientTabsNavigator");
         }
       } else {
         setIsLoading(false);

@@ -35,7 +35,7 @@ class DatabaseService {
           gender TEXT,
           country TEXT,
           address TEXT,
-          image TEXT
+          image TEXT,
           allowNotifications INTEGER DEFAULT 1, 
           allowCamera INTEGER DEFAULT 1
         );
@@ -107,14 +107,14 @@ class DatabaseService {
       
       // Insertamos Admin con datos completos
       await this.db.runAsync(
-        'INSERT INTO users (email, password, name, nickname, role, phone, gender, country, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)', 
-        ['admin1@comecon.com', '12345678a', 'Samantha Rios Bosques', 'Sam', 'administrador', '3512040011', 'Femenino', 'Mexico', 'Av. Virrey de Almanza #500',1,1]
+        'INSERT INTO users (email, password, name, nickname, role, phone, gender, country, address, allowNotifications, allowCamera) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+        ['admin1@comecon.com', '12345678a', 'Samantha Rios Bosques', 'Sam', 'administrador', '3512040011', 'Femenino', 'Mexico', 'Av. Virrey de Almanza #500', 1, 1]
       );
-      
+        
       // Insertamos Cliente
       await this.db.runAsync(
-        'INSERT INTO users (email, password, name, nickname, role, phone, gender, country, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)', 
-        ['cliente1@comecon.com', '12345678a', 'Juan Pérez', 'Juancho', 'cliente', '3512345678', 'Masculino', 'Mexico', 'Calle Falsa 123',1,1]
+        'INSERT INTO users (email, password, name, nickname, role, phone, gender, country, address, allowNotifications, allowCamera) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+        ['cliente1@comecon.com', '12345678a', 'Juan Pérez', 'Juancho', 'cliente', '3512345678', 'Masculino', 'Mexico', 'Calle Falsa 123', 1, 1]
       );
       
       const products = [
@@ -258,7 +258,6 @@ class DatabaseService {
       let query = 'UPDATE products SET title=?, subtitle=?, price=?, description=?, visible=?';
       const params: any[] = [product.title, product.subtitle, parseFloat(product.price!), product.description, product.visible?1:0];
       
-      // Si viene imagen nueva, agregamos al query
       if (product.image) {
         query += ', image=?';
         params.push(product.image);

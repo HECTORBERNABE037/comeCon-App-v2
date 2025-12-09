@@ -1,17 +1,32 @@
 import React from 'react';
 import { 
-  View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity, StatusBar, Platform, ActivityIndicator, Alert 
+  View, 
+  Text, 
+  StyleSheet, 
+  SafeAreaView, 
+  Image, 
+  TouchableOpacity, 
+  StatusBar, 
+  Platform, 
+  ActivityIndicator, 
+  Alert 
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Feather } from '@expo/vector-icons';
-import { AdminBottomNavBar } from '../../components/AdminBottomNavBar';
-import { COLORS, FONT_SIZES, RootStackParamList } from '../../../types';
+
+// Importamos AdminTabParamList también
+import { COLORS, FONT_SIZES, RootStackParamList, AdminTabParamList } from '../../../types';
 import { useAuth } from '../../context/AuthContext';
-import { showImageOptions } from '../../utils/ImagePickerHelper'; // Helper de cámara
+import { showImageOptions } from '../../utils/ImagePickerHelper'; 
 import DatabaseService from '../../services/DatabaseService';
 
-type AdminProfileNavigationProp = StackNavigationProp<RootStackParamList, 'AdminProfile'>;
+// DEFINICIÓN DE TIPO CORREGIDA (Combinación de Tabs + Stack)
+type AdminProfileNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<AdminTabParamList, 'AdminProfileTab'>,
+  StackNavigationProp<RootStackParamList>
+>;
 
 export const AdminProfileScreen = () => {
   const navigation = useNavigation<AdminProfileNavigationProp>();
@@ -21,24 +36,21 @@ export const AdminProfileScreen = () => {
   useFocusEffect(React.useCallback(() => { refreshUser(); }, []));
 
   const handleEditProfile = () => {
+    // Esto funciona porque 'EditAdminProfile' sí está en RootStackParamList
     navigation.navigate('EditAdminProfile');
   };
 
-  // Función para manejar el botón de cámara
   const handleChangePhoto = () => {
-    // 1. Verificamos permiso guardado en BD
     if (!user?.allowCamera) {
       Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración para cambiar tu foto.");
       return;
     }
     
-    // 2. Abrimos opciones (Cámara/Galería)
     showImageOptions(async (uri) => {
-      // 3. AQUÍ ESTABA EL ERROR: Ahora usamos el método correcto updateUserImage
       const success = await DatabaseService.updateUserImage(user.email, uri);
       
       if (success) {
-        refreshUser(); // Actualizar contexto para ver la nueva foto al instante
+        refreshUser(); 
         Alert.alert("Éxito", "Foto de perfil actualizada.");
       } else {
         Alert.alert("Error", "No se pudo guardar la foto.");
@@ -48,18 +60,19 @@ export const AdminProfileScreen = () => {
 
   if (!user) return <ActivityIndicator size="large" color={COLORS.primary} style={{flex:1}} />;
 
-  // Resolver imagen local o URI
   const userImage = user.image ? { uri: user.image } : require('../../../assets/logoApp.png');
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      
       <View style={styles.headerCard}>
         <Text style={styles.headerTitle}>Informacion Personal</Text>
         <View style={styles.headerUnderline} />
       </View>
 
       <View style={styles.content}>
+        
         <View style={styles.profileImageContainer}>
           <Image source={userImage} style={styles.profileImage} />
           {/* Botón de Cámara sobre la imagen */}
@@ -73,22 +86,30 @@ export const AdminProfileScreen = () => {
           <Text style={styles.value}>{user.nombre}</Text>
           <View style={styles.separator} />
         </View>
+
         <View style={styles.infoGroup}>
           <Text style={styles.label}>Telefono</Text>
           <Text style={styles.value}>{user.telefono || 'No registrado'}</Text>
           <View style={styles.separator} />
         </View>
+
         <View style={styles.infoGroup}>
           <Text style={styles.label}>Email</Text>
           <Text style={styles.value}>{user.email}</Text>
           <View style={styles.separator} />
         </View>
         
+        {/* Botón Editar */}
         <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
           <Text style={styles.editButtonText}>EDITAR PERFIL</Text>
         </TouchableOpacity>
+
       </View>
-      <AdminBottomNavBar activeRoute="Profile" />
+
+      {/* IMPORTANTE: Eliminamos <AdminBottomNavBar /> de aquí.
+         Ahora el TabNavigator (AdminTabs.tsx) se encarga de mostrarla.
+      */}
+      
     </SafeAreaView>
   );
 };

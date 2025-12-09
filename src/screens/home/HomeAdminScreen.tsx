@@ -12,23 +12,34 @@ import {
   StatusBar,
   Platform
 } from "react-native";
+import { useFocusEffect, CompositeNavigationProp } from "@react-navigation/native"; 
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from "@react-navigation/stack";
-import { useFocusEffect } from "@react-navigation/native"; 
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { COLORS, FONT_SIZES, Platillo, ProductFormData,RootStackParamList } from "../../../types";
+
+// Importamos los tipos de ambas listas de navegación
+import { RootStackParamList, AdminTabParamList, COLORS, FONT_SIZES, Platillo, ProductFormData } from "../../../types";
+
 import { EditProductModal } from "../../components/EditProductModal";
 import { PromoteProductModal } from "../../components/PromoteProductModal";
 import { AddProductModal } from "../../components/AddProductModal"; 
-import { AdminBottomNavBar } from "../../components/AdminBottomNavBar";
+// Ya no importamos AdminBottomNavBar aquí porque el TabNavigator lo maneja
 import DatabaseService from '../../services/DatabaseService';
 
-type HomeAdminScreenNavigationProp = StackNavigationProp<RootStackParamList, "HomeAdmin">;
+// DEFINICIÓN DE TIPO DE NAVEGACIÓN COMPUESTO (Tab + Stack)
+type HomeAdminScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<AdminTabParamList, 'HomeAdminTab'>,
+  StackNavigationProp<RootStackParamList>
+>;
 
 interface HomeAdminScreenProps {
   navigation: HomeAdminScreenNavigationProp;
 }
 
 const resolveImage = (imageName: string) => {
+  if (imageName?.startsWith('file://')) {
+    return { uri: imageName };
+  }
   switch (imageName) {
     case 'bowlFrutas': return require('../../../assets/bowlFrutas.png');
     case 'tostadaAguacate': return require('../../../assets/tostadaAguacate.png');
@@ -51,17 +62,15 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
 
   const loadProducts = async () => {
     try {
-      // DatabaseService devuelve 'price' (base) y 'promotionalPrice' (oferta)
       const productsFromDB = await DatabaseService.getProducts();
       
       const formattedProducts: Platillo[] = productsFromDB.map(p => ({
         id: p.id.toString(),
         title: p.title,
         subtitle: p.subtitle,
-        price: p.price.toString(), // BASE
+        price: p.price.toString(),
         description: p.description,
         image: resolveImage(p.image),
-        // IMPORTANTE: Asegúrate de que 'Platillo' en types/index.ts tenga promotionalPrice?: string
         promotionalPrice: p.promotionalPrice ? p.promotionalPrice.toString() : undefined,
         visible: p.visible 
       }));
@@ -90,11 +99,11 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
     setIsAddModalVisible(true);
   };
 
-  const handleAddProduct = async (newProductData: ProductFormData) => {
+  const handleAddProduct = async (newProductData: any) => {
     try {
       await DatabaseService.addProduct({
         ...newProductData,
-        image: 'logoApp' 
+        image: newProductData.image || 'logoApp' 
       });
       await loadProducts();
       setIsAddModalVisible(false);
@@ -117,7 +126,8 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
         subtitle: updatedProduct.subtitle,
         price: priceString,
         description: updatedProduct.description,
-        visible: updatedProduct.visible 
+        visible: updatedProduct.visible,
+        image: updatedProduct.image
       });
       await loadProducts();
       setIsEditModalVisible(false);
@@ -169,7 +179,6 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
   };
 
   const renderAdminItem = ({ item }: { item: Platillo }) => {
-    // Si existe promotionalPrice, hay promo
     const hasPromo = !!item.promotionalPrice; 
 
     return (
@@ -200,12 +209,9 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
           <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
           
           <View>
-             {/* Precio Original Tachado (El precio base SIEMPRE es item.price) */}
              {hasPromo && (
                 <Text style={styles.oldPriceText}>${item.price}</Text>
              )}
-             
-             {/* Precio Principal (Si hay promo mostramos promotionalPrice, si no price) */}
              <Text style={[
                styles.itemPrice, 
                !item.visible && {color: '#999'},
@@ -266,9 +272,8 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
         }
       />
 
-      <AdminBottomNavBar activeRoute="Home" />
+      {/* NOTA: Eliminamos <AdminBottomNavBar /> porque ahora está en AdminTabs.tsx */}
 
-      {/* MODALES */}
       <AddProductModal 
         visible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}

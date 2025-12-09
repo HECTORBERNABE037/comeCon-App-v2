@@ -220,7 +220,6 @@ export const OrderTrackingScreen = () => {
           ListEmptyComponent={<Text style={styles.emptyText}>{searchQuery ? 'No se encontraron órdenes.' : (activeTab === 'process' ? 'No hay órdenes pendientes' : 'Historial vacío')}</Text>}
         />
       )}
-      <AdminBottomNavBar activeRoute="Orders" />
       <OrderActionModal
         visible={isModalVisible} order={selectedOrder} onClose={() => setIsModalVisible(false)}
         onUpdate={handleUpdateOrder} onComplete={handleCompleteOrder} onCancel={handleCancelOrder}

@@ -188,23 +188,39 @@ export interface CardFormData {
 // 7. NAVEGACIÓN
 // ==========================================
 
+// 7.1 Rutas de las Pestañas de Administrador
+export type AdminTabParamList = {
+  HomeAdminTab: undefined;
+  OrderTrackingTab: undefined;
+  AdminProfileTab: undefined;
+  SettingsTab: undefined;
+};
+
+// 7.2 Rutas de las Pestañas de Cliente
+export type ClientTabParamList = {
+  HomeClientTab: undefined;
+  ClientOrderTrackingTab: undefined;
+  ClientProfileTab: undefined;
+  SettingsTab: undefined;
+};
+
+// 7.3 Stack Principal (Auth + Contenedores de Pestañas + Pantallas sin pestañas)
 export type RootStackParamList = {
   Login: undefined;
-  Home: undefined;
-  HomeAdmin: undefined;
   Register: undefined;
-  ProductDetails: { platillo: Platillo };
   ForgotPassword: undefined;
   ResetCode: { emailOrPhone: string };
   SetNewPassword: { emailOrPhone: string };
-  OrderTracking: undefined;
-  AdminProfile: undefined;
-  EditAdminProfile: undefined;
-  ClientOrderTracking: undefined;
-  ClientProfile: undefined;
-  EditClientProfile: undefined;
+  
+  // Contenedores de Pestañas (Estas son las nuevas rutas principales)
+  AdminTabsNavigator: undefined;
+  ClientTabsNavigator: undefined;
+
+  // Pantallas que NO deben tener barra inferior (se abren sobre todo)
+  ProductDetails: { platillo: Platillo };
   Cart: undefined;
   Checkout: undefined;
   AddCard: undefined;
-  Settings:undefined;
+  EditAdminProfile: undefined;
+  EditClientProfile: undefined;
 };
