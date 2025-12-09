@@ -13,8 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Feather } from '@expo/vector-icons';
 import { ClientBottomNavBar } from '../../components/ClientBottomNavBar'; // Barra del cliente
-import { COLORS, FONT_SIZES, ClientProfile } from '../../../types';
-import { RootStackParamList } from '../../navigation/StackNavigator';
+import { COLORS, FONT_SIZES, ClientProfile,RootStackParamList } from '../../../types';
 
 // Tipo de navegación
 type ClientProfileNavigationProp = StackNavigationProp<RootStackParamList, 'ClientProfile'>;

@@ -13,8 +13,7 @@ import {
   ScrollView // Agregamos ScrollView para pantallas pequeñas
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { RootStackParamList } from "../../navigation/StackNavigator";
-import { RegisterFormData, COLORS, FONT_SIZES } from "../../../types";
+import { RegisterFormData, COLORS, FONT_SIZES,RootStackParamList } from "../../../types";
 import { Ionicons } from '@expo/vector-icons';
 import { useForm } from '../../hooks/useForm';
 import { validateRegister } from '../../utils/validationRules';

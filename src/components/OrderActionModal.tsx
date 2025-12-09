@@ -43,27 +43,28 @@ export const OrderActionModal: React.FC<Props> = ({
   useEffect(() => {
     if (order && visible) {
       setFormData({
-        status: 'En proceso', // Valor por defecto o el que venga de la orden
-        estimatedTime: '7:30pm',
-        comment: ''
+        // CORRECCIÓN: Carga el status real, no uno hardcodeado
+        status: order.status, 
+        estimatedTime: order.deliveryTime || '7:30pm',
+        comment: order.historyNotes || ''
       });
     }
   }, [order, visible]);
 
   const handleSave = () => {
     if (validate() && order) {
-      onUpdate(order.id, formData);
+      onUpdate(order.id.toString(), formData);
     } else {
       Alert.alert("Atención", "Revisa los campos requeridos.");
     }
   };
 
   const handleCompleteAction = () => {
-    if(order) onComplete(order.id);
+    if(order) onComplete(order.id.toString());
   };
 
   const handleCancelAction = () => {
-    if(order) onCancel(order.id);
+    if(order) onCancel(order.id.toString());
   };
 
   if (!order) return null;
@@ -101,7 +102,7 @@ export const OrderActionModal: React.FC<Props> = ({
             {errors.status && <Text style={styles.errorText}>{errors.status}</Text>}
 
             {/* Input Hora Estimada */}
-            <Text style={styles.label}>Hora Estimada de entrega</Text>
+            <Text style={styles.label}>Hora Estimada / Entrega</Text>
             <TextInput
               style={styles.input}
               value={formData.estimatedTime}
@@ -116,7 +117,7 @@ export const OrderActionModal: React.FC<Props> = ({
               style={[styles.input, styles.textArea]}
               value={formData.comment}
               onChangeText={(text) => updateFormData('comment', text)}
-              placeholder="ej. Fueron a comprar la leche"
+              placeholder="Notas internas..."
               multiline
               textAlignVertical="top"
               maxLength={100}
@@ -154,7 +155,6 @@ export const OrderActionModal: React.FC<Props> = ({
 
           </ScrollView>
           
-          {/* Botón cerrar auxiliar (opcional, clic fuera cierra también) */}
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
              <Ionicons name="close-circle-outline" size={30} color="#ccc" />
           </TouchableOpacity>
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   },
   footerIcons: {
     flexDirection: 'row',
-    justifyContent: 'space-around', // Distribuye los iconos
+    justifyContent: 'space-around', 
     width: '100%',
     marginTop: 30,
     paddingHorizontal: 10,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 12,
     right: 12,
-    backgroundColor: COLORS.text, // Negro
+    backgroundColor: COLORS.text, 
     borderRadius: 10,
     width: 16,
     height: 16,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 12,
     right: 12,
-    backgroundColor: '#D50000', // Rojo
+    backgroundColor: '#D50000', 
     borderRadius: 10,
     width: 16,
     height: 16,

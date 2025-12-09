@@ -7,42 +7,51 @@ import {
   Image, 
   TouchableOpacity, 
   StatusBar,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Feather } from '@expo/vector-icons';
 import { AdminBottomNavBar } from '../../components/AdminBottomNavBar';
-import { COLORS, FONT_SIZES, AdminProfile } from '../../../types';
-import { RootStackParamList } from '../../navigation/StackNavigator';
+import { COLORS, FONT_SIZES, RootStackParamList } from '../../../types';
+import { useAuth } from '../../context/AuthContext'; // Hook del contexto
 
-// Definimos el tipo de navegación específico
 type AdminProfileNavigationProp = StackNavigationProp<RootStackParamList, 'AdminProfile'>;
-
-// Datos Simulados del Perfil
-const adminData: AdminProfile = {
-  fullName: 'Samantha Rios',
-  nickname: 'Sam',
-  email: 'Sami@gmail.com',
-  phone: '+52 351 204 0011',
-  gender: 'Femenino',
-  country: 'Mexico',
-  address: '',
-  image: require('../../../assets/logoApp.png'), // Usando logo como placeholder
-};
 
 export const AdminProfileScreen = () => {
   const navigation = useNavigation<AdminProfileNavigationProp>();
+  
+  // Obtenemos el usuario y la función de refrescar del contexto global
+  const { user, refreshUser } = useAuth();
+
+  // Cada vez que esta pantalla tenga foco (al volver de editar), refrescamos los datos
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshUser();
+    }, [])
+  );
 
   const handleEditProfile = () => {
     navigation.navigate('EditAdminProfile');
   };
 
+  // Si no hay usuario cargado aún (raro si pasó por login, pero por seguridad)
+  if (!user) {
+    return (
+      <View style={[styles.container, {justifyContent:'center', alignItems:'center'}]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  // Imagen por defecto si no tiene una personalizada
+  const userImage = user.image ? { uri: user.image } : require('../../../assets/logoApp.png');
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
-      {/* Header Estilo Tarjeta Superior */}
       <View style={styles.headerCard}>
         <Text style={styles.headerTitle}>Informacion Personal</Text>
         <View style={styles.headerUnderline} />
@@ -50,42 +59,49 @@ export const AdminProfileScreen = () => {
 
       <View style={styles.content}>
         
-        {/* Imagen de Perfil con Botón Editar (Visual) */}
+        {/* Imagen de Perfil */}
         <View style={styles.profileImageContainer}>
-          <Image source={adminData.image} style={styles.profileImage} />
+          <Image source={userImage} style={styles.profileImage} />
           <View style={styles.editIconContainer}>
              <Feather name="edit-2" size={16} color={COLORS.text} />
           </View>
         </View>
 
-        {/* Campos de Información */}
+        {/* Campos de Información (Vienen del Contexto) */}
         
         <View style={styles.infoGroup}>
           <Text style={styles.label}>Nombre</Text>
-          <Text style={styles.value}>{adminData.fullName}</Text>
+          <Text style={styles.value}>{user.nombre}</Text>
           <View style={styles.separator} />
         </View>
 
         <View style={styles.infoGroup}>
           <Text style={styles.label}>Telefono</Text>
-          <Text style={styles.value}>{adminData.phone}</Text>
+          <Text style={styles.value}>{user.telefono || 'No registrado'}</Text>
           <View style={styles.separator} />
         </View>
 
         <View style={styles.infoGroup}>
           <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{adminData.email}</Text>
+          <Text style={styles.value}>{user.email}</Text>
           <View style={styles.separator} />
         </View>
+        
+        {/* (Opcional) Mostrar campos extra si existen */}
+        {user.address ? (
+            <View style={styles.infoGroup}>
+            <Text style={styles.label}>Dirección</Text>
+            <Text style={styles.value}>{user.address}</Text>
+            <View style={styles.separator} />
+            </View>
+        ) : null}
 
-        {/* Botón para ir a Editar */}
         <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
           <Text style={styles.editButtonText}>EDITAR PERFIL</Text>
         </TouchableOpacity>
 
       </View>
 
-      {/* Barra de Navegación (Activo: Profile) */}
       <AdminBottomNavBar activeRoute="Profile" />
     </SafeAreaView>
   );
@@ -94,7 +110,7 @@ export const AdminProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F2', // Fondo gris claro
+    backgroundColor: '#F2F2F2',
   },
   headerCard: {
     alignItems: 'center',
@@ -127,6 +143,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     backgroundColor: '#DDD',
+    resizeMode: 'cover' // Asegura que se vea bien si es foto
   },
   editIconContainer: {
     position: 'absolute',

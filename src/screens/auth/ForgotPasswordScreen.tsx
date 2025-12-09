@@ -15,8 +15,7 @@ import { StackScreenProps } from "@react-navigation/stack";
 import { Ionicons } from '@expo/vector-icons';
 
 // Importaciones internas
-import { RootStackParamList } from "../../navigation/StackNavigator";
-import { ForgotPasswordFormData, COLORS, FONT_SIZES } from "../../../types";
+import { ForgotPasswordFormData, COLORS, FONT_SIZES,RootStackParamList } from "../../../types";
 import { useForm } from '../../hooks/useForm';
 import { validateForgotPassword } from '../../utils/validationRules';
 import DatabaseService from '../../services/DatabaseService';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,46 +9,87 @@ import {
   ScrollView, 
   StatusBar,
   Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../../navigation/StackNavigator';
-import { COLORS, FONT_SIZES, AdminProfileFormData } from '../../../types';
+import { RootStackParamList, COLORS, FONT_SIZES, AdminProfileFormData } from '../../../types';
+import DatabaseService from '../../services/DatabaseService';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = StackScreenProps<RootStackParamList, 'EditAdminProfile'>;
 
-export const EditAdminProfileScreen: React.FC<Props> = ({ navigation, route }) => {
+export const EditAdminProfileScreen: React.FC<Props> = ({ navigation }) => {
   
-  // En un caso real, estos datos vendrían de route.params o un contexto global
-  // Por ahora inicializamos con datos simulados
+  const { user, refreshUser } = useAuth(); // Datos del contexto
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState<AdminProfileFormData>({
-    fullName: 'Samantha Rios Bosques',
-    nickname: 'Samantha Rios',
-    email: 'Sami@gmail.com',
-    phone: '3512040011',
-    gender: 'Femenino',
-    country: 'Mexico',
-    address: 'Av. Virrey de Almanza #500'
+    fullName: '',
+    nickname: '',
+    email: '',
+    phone: '',
+    gender: '',
+    country: '',
+    address: ''
   });
+
+  // Pre-llenar el formulario con los datos actuales del contexto
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        fullName: user.nombre || '',
+        nickname: user.nickname || '',
+        email: user.email || '',
+        phone: user.telefono || '',
+        gender: user.gender || '',
+        country: user.country || '',
+        address: user.address || ''
+      });
+    }
+  }, [user]);
 
   const handleChange = (field: keyof AdminProfileFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleUpdate = () => {
-    // Aquí iría la lógica para guardar en backend
-    console.log("Datos actualizados:", formData);
-    Alert.alert("Éxito", "Información actualizada correctamente", [
-      { text: "OK", onPress: () => navigation.goBack() }
-    ]);
+  const handleUpdate = async () => {
+    if (!formData.fullName.trim()) {
+      Alert.alert("Error", "El nombre es obligatorio");
+      return;
+    }
+
+    if (!user) return; // Seguridad
+
+    setLoading(true);
+
+    try {
+      // 1. Guardar cambios en SQLite usando el email del usuario logueado
+      const success = await DatabaseService.updateUserProfile(user.email, formData);
+      
+      if (success) {
+        // 2. IMPORTANTE: Actualizar el contexto global para que el perfil muestre los datos nuevos
+        await refreshUser();
+        
+        Alert.alert("Éxito", "Información actualizada correctamente", [
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        Alert.alert("Error", "No se pudo actualizar el perfil en la base de datos.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Ocurrió un problema inesperado.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
-      {/* Header con Flecha Atrás */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={28} color={COLORS.text} />
@@ -70,6 +111,7 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation, route }) =
           style={styles.input}
           value={formData.fullName}
           onChangeText={(text) => handleChange('fullName', text)}
+          editable={!loading}
         />
 
         {/* Nickname */}
@@ -78,22 +120,25 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation, route }) =
           style={styles.input}
           value={formData.nickname}
           onChangeText={(text) => handleChange('nickname', text)}
+          editable={!loading}
         />
 
-        {/* Email (Solo Lectura) */}
+        {/* Email (Solo Lectura - Es la llave primaria/login) */}
         <Text style={styles.label}>Email</Text>
         <TextInput
           style={[styles.input, styles.readOnlyInput]}
           value={formData.email}
-          editable={false}
+          editable={false} 
         />
 
-        {/* Telefono (Solo Lectura) */}
+        {/* Telefono */}
         <Text style={styles.label}>Telefono</Text>
         <TextInput
-          style={[styles.input, styles.readOnlyInput]}
+          style={styles.input}
           value={formData.phone}
-          editable={false}
+          onChangeText={(text) => handleChange('phone', text)}
+          keyboardType="phone-pad"
+          editable={!loading}
         />
 
         {/* Fila: Genero y País */}
@@ -104,14 +149,16 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation, route }) =
               style={styles.input}
               value={formData.gender}
               onChangeText={(text) => handleChange('gender', text)}
+              editable={!loading}
             />
           </View>
           <View style={[styles.halfInputContainer, { marginLeft: 15 }]}>
             <Text style={styles.label}>País</Text>
             <TextInput
-              style={[styles.input, styles.readOnlyInput]}
+              style={styles.input}
               value={formData.country}
-              editable={false}
+              onChangeText={(text) => handleChange('country', text)}
+              editable={!loading}
             />
           </View>
         </View>
@@ -122,11 +169,20 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation, route }) =
           style={styles.input}
           value={formData.address}
           onChangeText={(text) => handleChange('address', text)}
+          editable={!loading}
         />
 
         {/* Botón Actualizar */}
-        <TouchableOpacity style={styles.updateButton} onPress={handleUpdate}>
-          <Text style={styles.updateButtonText}>ACTUALIZAR</Text>
+        <TouchableOpacity 
+          style={[styles.updateButton, loading && {opacity: 0.7}]} 
+          onPress={handleUpdate}
+          disabled={loading}
+        >
+          {loading ? (
+             <ActivityIndicator color={COLORS.white} />
+          ) : (
+             <Text style={styles.updateButtonText}>ACTUALIZAR</Text>
+          )}
         </TouchableOpacity>
 
       </ScrollView>
@@ -137,7 +193,7 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation, route }) =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F2', // Fondo gris claro general
+    backgroundColor: '#F2F2F2', 
   },
   header: {
     flexDirection: 'row',
@@ -192,7 +248,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   readOnlyInput: {
-    backgroundColor: '#EAEAEA', // Gris para indicar deshabilitado
+    backgroundColor: '#EAEAEA', 
     color: COLORS.textSecondary,
   },
   rowContainer: {

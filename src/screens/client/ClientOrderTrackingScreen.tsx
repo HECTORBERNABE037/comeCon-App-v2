@@ -12,10 +12,9 @@ import {
   Alert
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZES } from '../../../types';
+import { COLORS, FONT_SIZES,RootStackParamList } from '../../../types';
 import { ClientBottomNavBar } from '../../components/ClientBottomNavBar';
 import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../../navigation/StackNavigator';
 
 type Props = StackScreenProps<RootStackParamList,'ClientOrderTracking'>;
 

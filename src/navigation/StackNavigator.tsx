@@ -6,7 +6,7 @@ import LoginScreen from "../screens/auth/LoginScreen";
 import HomeScreen from "../screens/home/HomeScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen"
 import { ProductDetailScreen } from "../screens/Product/ProducDetailsScreen";
-import { COLORS, Platillo } from "../../types";
+import { COLORS, RootStackParamList } from "../../types";
 import {ForgotPasswordScreen} from "../screens/auth/ForgotPasswordScreen" 
 import {ResetCodeScreen} from "../screens/auth/ResetCodeScreen"
 import {SetNewPasswordScreen} from "../screens/auth/SetNewPasswordScreen"
@@ -21,26 +21,6 @@ import { CartScreen } from "../screens/client/CartScreen";
 import { CheckoutScreen } from "../screens/client/CheckoutScreen";
 import { AddCardScreen } from "../screens/client/AddCardScreen";
 
-
-export type RootStackParamList = {
-  Login: undefined, // undefined significa que no recibe parámetros
-  Home: undefined,
-  HomeAdmin:undefined,
-  Register : undefined,
-  ProductDetails : {platillo: Platillo},
-  ForgotPassword : undefined,
-  ResetCode: {emailOrPhone:string},
-  SetNewPassword: {emailOrPhone:string},
-  OrderTracking: undefined,
-  AdminProfile: undefined,
-  EditAdminProfile:undefined,
-  ClientOrderTracking:undefined,
-  ClientProfile: undefined,
-  EditClientProfile: undefined,
-  Cart:undefined,
-  AddCard:undefined,
-  Checkout:undefined
-};
 
 const Stack = createStackNavigator<RootStackParamList>();
 

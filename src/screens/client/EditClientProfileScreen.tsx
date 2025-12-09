@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../../navigation/StackNavigator';
-import { COLORS, FONT_SIZES, ClientProfileFormData } from '../../../types';
+import { COLORS, FONT_SIZES, ClientProfileFormData,RootStackParamList } from '../../../types';
 
 type Props = StackScreenProps<RootStackParamList, 'EditClientProfile'>;
 

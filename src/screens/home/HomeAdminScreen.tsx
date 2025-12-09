@@ -15,10 +15,7 @@ import {
 import { StackNavigationProp } from "@react-navigation/stack";
 import { useFocusEffect } from "@react-navigation/native"; 
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { RootStackParamList } from "../../navigation/StackNavigator";
-import { COLORS, FONT_SIZES, Platillo, ProductFormData } from "../../../types";
-
-// IMPORTANTE: Todas las importaciones usan { } porque los archivos usan 'export const'
+import { COLORS, FONT_SIZES, Platillo, ProductFormData,RootStackParamList } from "../../../types";
 import { EditProductModal } from "../../components/EditProductModal";
 import { PromoteProductModal } from "../../components/PromoteProductModal";
 import { AddProductModal } from "../../components/AddProductModal"; 

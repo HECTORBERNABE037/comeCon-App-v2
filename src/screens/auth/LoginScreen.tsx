@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react"; // Quitamos useEffect de imports
 import { 
   View, 
   Text, 
@@ -12,13 +12,11 @@ import {
   StatusBar 
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { RootStackParamList } from "../../navigation/StackNavigator"; 
-import { LoginFormData, COLORS, FONT_SIZES } from "../../../types"; 
+import { LoginFormData, COLORS, FONT_SIZES, RootStackParamList } from "../../../types"; 
 import { useForm } from '../../hooks/useForm';
 import { validateLogin } from '../../utils/validationRules';
-
-// Importamos el servicio de base de datos
 import DatabaseService from '../../services/DatabaseService';
+import { useAuth } from '../../context/AuthContext'; 
 
 const loginImage = require("../../../assets/logoApp.png");
 
@@ -30,6 +28,7 @@ interface LoginScreenProps {
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   
+  const { signIn } = useAuth();
   const { formData, errors, updateFormData, validate } = useForm<LoginFormData>(
     { email: "", password: "" },
     validateLogin
@@ -37,39 +36,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // 1. Inicializamos la Base de Datos al abrir la app (en el Login)
-  useEffect(() => {
-    const initDB = async () => {
-      await DatabaseService.init();
-      await DatabaseService.debugCheckDB();
-    };
-    initDB();
-  }, []);
-  
   const handleLogin = async (): Promise<void> => {
-    // 2. Validar campos vacíos
-    if (!validate()) {
-      return; 
-    }
+    if (!validate()) return;
 
     setIsLoading(true);
 
     try {
-      // 3. Consultar a SQLite
-      const user = await DatabaseService.loginUser(formData.email.trim(), formData.password);
+      const success = await signIn(formData.email.trim(), formData.password);
 
-      setIsLoading(false);
+      if (success) {
+        // Consultamos el rol directamente para navegación rápida
+        const user = await DatabaseService.loginUser(formData.email.trim(), formData.password);
+        setIsLoading(false);
 
-      if (user) {
-        console.log("Usuario encontrado:", user);
-        
-        // 4. Redirección basada en Rol (Dato real de la BD)
-        if (user.role === 'administrador') {
+        if (user?.role === 'administrador') {
           navigation.replace("HomeAdmin");
         } else {
           navigation.replace("Home");
         }
       } else {
+        setIsLoading(false);
         Alert.alert("Error", "Credenciales incorrectas o usuario no registrado.");
       }
 
@@ -80,7 +66,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
   
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -226,7 +211,7 @@ const styles = StyleSheet.create({
     marginTop: 15, 
   },
   errorText: {
-    color: COLORS.error,
+    color: COLORS.error, 
     fontSize: FONT_SIZES.small,
     marginLeft: 10,
     marginBottom: 10,

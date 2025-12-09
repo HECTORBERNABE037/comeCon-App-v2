@@ -43,6 +43,13 @@ export interface Usuario extends BaseEntity {
   email: string;
   telefono?: string;
   role: UserRole;
+  nickname?:string;
+  gender?:string;
+  country?:string;
+  address?:string;
+  image?:any;
+  allowNotifications?:boolean;
+  allowCamera?:boolean;
 }
 
 // Perfil compartido (base para Admin y Cliente si tienen campos iguales)
@@ -176,3 +183,27 @@ export interface CardFormData {
   country: string;
   holderName: string;
 }
+
+// ==========================================
+// 7. NAVEGACIÓN
+// ==========================================
+
+export type RootStackParamList = {
+  Login: undefined;
+  Home: undefined;
+  HomeAdmin: undefined;
+  Register: undefined;
+  ProductDetails: { platillo: Platillo };
+  ForgotPassword: undefined;
+  ResetCode: { emailOrPhone: string };
+  SetNewPassword: { emailOrPhone: string };
+  OrderTracking: undefined;
+  AdminProfile: undefined;
+  EditAdminProfile: undefined;
+  ClientOrderTracking: undefined;
+  ClientProfile: undefined;
+  EditClientProfile: undefined;
+  Cart: undefined;
+  Checkout: undefined;
+  AddCard: undefined;
+};

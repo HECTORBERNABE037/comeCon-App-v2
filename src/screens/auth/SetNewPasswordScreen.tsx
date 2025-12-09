@@ -12,8 +12,7 @@ import {
   StatusBar
 } from "react-native";
 import { StackScreenProps } from "@react-navigation/stack";
-import { RootStackParamList } from "../../navigation/StackNavigator";
-import { SetNewPasswordFormData, COLORS, FONT_SIZES } from "../../../types";
+import { SetNewPasswordFormData, COLORS, FONT_SIZES,RootStackParamList } from "../../../types";
 import { Ionicons } from '@expo/vector-icons';
 import { useForm } from '../../hooks/useForm';
 import { validateSetNewPassword } from '../../utils/validationRules';

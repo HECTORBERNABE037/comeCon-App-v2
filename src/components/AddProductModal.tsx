@@ -15,6 +15,8 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { ProductFormData, COLORS, FONT_SIZES } from '../../types';
 import { useForm } from '../hooks/useForm';
 import { validateProductForm } from '../utils/validationRules';
+import { showImageOptions } from '../utils/ImagePickerHelper';
+import { useAuth } from '../context/AuthContext';
 
 interface Props {
   visible: boolean;

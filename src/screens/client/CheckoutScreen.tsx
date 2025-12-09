@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
-import { RootStackParamList } from '../../navigation/StackNavigator';
-import { COLORS, FONT_SIZES, CartItem, PaymentMethod } from '../../../types';
+import { COLORS, FONT_SIZES, CartItem, PaymentMethod,RootStackParamList } from '../../../types';
 
 // Simulamos que recibimos los ítems del carrito
 const cartItems: CartItem[] = [

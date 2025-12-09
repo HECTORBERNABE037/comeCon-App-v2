@@ -16,8 +16,7 @@ import {
 import { StackNavigationProp } from "@react-navigation/stack";
 import { MaterialIcons, FontAwesome5, Feather, Ionicons } from "@expo/vector-icons";
 
-import { RootStackParamList } from "../../navigation/StackNavigator";
-import { COLORS, FONT_SIZES, Promocion, Platillo } from "../../../types";
+import { COLORS, FONT_SIZES, Promocion, Platillo,RootStackParamList } from "../../../types";
 import { ClientBottomNavBar } from "../../components/ClientBottomNavBar"; // Importamos la nueva barra
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, "Home">;
