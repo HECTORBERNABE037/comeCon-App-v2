@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../types';
 
@@ -8,7 +8,7 @@ import { COLORS } from '../../types';
 type AdminTab = 'Home' | 'Orders' | 'Settings' | 'Profile' | null;
 
 interface Props {
-  activeRoute: AdminTab; // La pantalla actual
+  activeRoute: AdminTab; 
 }
 
 export const AdminBottomNavBar: React.FC<Props> = ({ activeRoute }) => {
@@ -32,19 +32,13 @@ export const AdminBottomNavBar: React.FC<Props> = ({ activeRoute }) => {
     navigation.navigate(route);
   };
 
-  const handleComingSoon = () => {
-    Alert.alert("En desarrollo", "Módulo de configuración próximamente.");
-  };
-
   return (
     <View style={styles.container}>
       
-      {/* 1. Botón Salir */}
       <TouchableOpacity style={styles.navItem} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={28} color="#C4C4C4" />
       </TouchableOpacity>
 
-      {/* 2. Botón Seguimiento (Orders) */}
       <TouchableOpacity 
         style={[styles.navItem, activeRoute === 'Orders' && styles.activeItem]} 
         onPress={() => handleNavigation('OrderTracking')}
@@ -54,28 +48,27 @@ export const AdminBottomNavBar: React.FC<Props> = ({ activeRoute }) => {
           size={26} 
           color={activeRoute === 'Orders' ? COLORS.primary : "#C4C4C4"} 
         />
-        {/* Badge de notificación simulado como en la imagen */}
-        {activeRoute !== 'Orders' && (
-             <View style={styles.badge} />
-        )}
+        {activeRoute !== 'Orders' && <View style={styles.badge} />}
       </TouchableOpacity>
 
-      {/* 3. Botón Home (Central) */}
       <View style={styles.centerButtonContainer}>
         <TouchableOpacity style={styles.centerButton} onPress={() => handleNavigation('HomeAdmin')}>
           <Ionicons name="home" size={30} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
-      {/* 4. Botón Configuración */}
+      {/* Botón Configuración Activo */}
       <TouchableOpacity 
         style={[styles.navItem, activeRoute === 'Settings' && styles.activeItem]} 
-        onPress={handleComingSoon}
+        onPress={() => handleNavigation('Settings')} // <--- CONECTADO
       >
-        <Ionicons name="settings-outline" size={28} color="#C4C4C4" />
+        <Ionicons 
+          name="settings-outline" 
+          size={28} 
+          color={activeRoute === 'Settings' ? COLORS.primary : "#C4C4C4"} 
+        />
       </TouchableOpacity>
 
-      {/* 5. Botón Perfil */}
       <TouchableOpacity 
         style={[styles.navItem, activeRoute === 'Profile' && styles.activeItem]} 
         onPress={() => handleNavigation('AdminProfile')}
@@ -120,10 +113,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   activeItem: {
-    backgroundColor: '#F0F0F0', // El rectángulo grisáceo para indicar activo
+    backgroundColor: '#F0F0F0',
   },
   centerButtonContainer: {
-    marginTop: -40, // Para que sobresalga hacia arriba
+    marginTop: -40, 
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -131,7 +124,7 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
     borderRadius: 32.5,
-    backgroundColor: COLORS.primary, // Naranja
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: COLORS.primary,
@@ -140,7 +133,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
     borderWidth: 4,
-    borderColor: '#f2f2f2' // Borde sutil para separar del fondo
+    borderColor: '#f2f2f2'
   },
   badge: {
     position: 'absolute',

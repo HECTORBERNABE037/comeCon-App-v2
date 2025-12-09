@@ -8,25 +8,23 @@ interface AuthContextData {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
   signOut: () => void;
-  refreshUser: () => Promise<void>; // Para recargar datos si editamos perfil
+  refreshUser: () => Promise<void>; 
 }
 
-// Creamos el contexto
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-// Provider: El componente que envolverá a toda la app
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Función para iniciar sesión
   const signIn = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       const dbUser = await DatabaseService.loginUser(email, password);
       
       if (dbUser) {
-        // Mapeamos lo que viene de la BD (raw) a nuestra interfaz Usuario
+        // CORRECCIÓN: Mapeamos los nuevos campos de configuración
+        // SQLite guarda booleans como 0 o 1, así que convertimos explícitamente
         const mappedUser: Usuario = {
           id: dbUser.id,
           nombre: dbUser.name,
@@ -37,7 +35,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           gender: dbUser.gender,
           country: dbUser.country,
           address: dbUser.address,
-          image: dbUser.image
+          image: dbUser.image,
+          // Mapeo de permisos (1 = true, 0 = false)
+          allowNotifications: dbUser.allowNotifications === 1,
+          allowCamera: dbUser.allowCamera === 1
         };
         setUser(mappedUser);
         return true;
@@ -51,17 +52,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Función para cerrar sesión
   const signOut = () => {
     setUser(null);
   };
 
-  // Función para recargar los datos del usuario actual (útil después de editar perfil)
   const refreshUser = async () => {
     if (!user) return;
     try {
       const dbUser = await DatabaseService.getUserByEmail(user.email);
       if (dbUser) {
+        // CORRECCIÓN: Actualizamos también los permisos al refrescar
         setUser({
           ...user,
           nombre: dbUser.name,
@@ -70,6 +70,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           gender: dbUser.gender,
           country: dbUser.country,
           address: dbUser.address,
+          image: dbUser.image,
+          allowNotifications: dbUser.allowNotifications === 1,
+          allowCamera: dbUser.allowCamera === 1
         });
       }
     } catch (error) {
@@ -84,5 +87,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Hook personalizado para usar el contexto fácil
 export const useAuth = () => useContext(AuthContext);

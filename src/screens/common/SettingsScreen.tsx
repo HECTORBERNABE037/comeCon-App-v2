@@ -1,40 +1,101 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, SafeAreaView, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Switch, 
+  SafeAreaView, 
+  TouchableOpacity, 
+  StatusBar,
+  Alert,
+  Linking, 
+  Platform
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext'; // Ajusta la ruta si es necesario
+import * as ImagePicker from 'expo-image-picker'; // IMPORTANTE: Para pedir permisos
+import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONT_SIZES } from '../../../types';
 import DatabaseService from '../../services/DatabaseService';
 
 export const SettingsScreen = ({ navigation }: { navigation: any }) => {
   const { user, refreshUser } = useAuth();
   
-  // Estados iniciales basados en la info del usuario (si es null, asumimos true por defecto)
-  const [notificationsEnabled, setNotificationsEnabled] = useState(user?.allowNotifications ?? true);
-  const [cameraEnabled, setCameraEnabled] = useState(user?.allowCamera ?? true);
+  // Inicializamos estados con la info del usuario
+  // Si user.allowCamera es 1 (true) o 0 (false), lo respetamos.
+  const [notificationsEnabled, setNotificationsEnabled] = useState(!!user?.allowNotifications);
+  const [cameraEnabled, setCameraEnabled] = useState(!!user?.allowCamera);
 
-  const toggleSwitch = async (type: 'notifications' | 'camera') => {
+  // Sincronizar estado local si el usuario cambia en el contexto
+  useEffect(() => {
+    if (user) {
+      setNotificationsEnabled(!!user.allowNotifications);
+      setCameraEnabled(!!user.allowCamera);
+    }
+  }, [user]);
+
+  const toggleCamera = async () => {
     if (!user) return;
 
-    let newSettings = { 
-      allowNotifications: notificationsEnabled, 
-      allowCamera: cameraEnabled 
-    };
+    const targetValue = !cameraEnabled; // El valor al que queremos cambiar
 
-    if (type === 'notifications') {
-      const newValue = !notificationsEnabled;
-      setNotificationsEnabled(newValue);
-      newSettings.allowNotifications = newValue;
-    } else {
-      const newValue = !cameraEnabled;
-      setCameraEnabled(newValue);
-      newSettings.allowCamera = newValue;
+    // Si el usuario quiere ACTIVAR la cámara, primero pedimos permiso al OS
+    if (targetValue === true) {
+      const { status, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (status !== 'granted') {
+        // Permiso denegado
+        if (!canAskAgain) {
+          Alert.alert(
+            "Permiso necesario",
+            "Has denegado el acceso a la cámara permanentemente. Ve a la configuración de tu celular para activarlo manualmante.",
+            [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Ir a Configuración", onPress: () => Linking.openSettings() }
+            ]
+          );
+        } else {
+          Alert.alert("Permiso denegado", "Necesitamos acceso a la cámara para tomar fotos de tus productos.");
+        }
+        // No activamos el switch ni guardamos en BD
+        return;
+      }
     }
 
-    // 1. Guardar en Base de Datos
-    await DatabaseService.updateUserSettings(user.email, newSettings);
+    // Si llegamos aquí, es porque tenemos permiso (o estamos desactivando)
+    // 1. Actualizamos visualmente
+    setCameraEnabled(targetValue);
+
+    // 2. Guardamos en BD
+    const success = await DatabaseService.updateUserSettings(user.email, {
+      allowNotifications: notificationsEnabled,
+      allowCamera: targetValue // Nuevo valor
+    });
+
+    if (success) {
+      await refreshUser(); // Actualizar contexto global
+    } else {
+      setCameraEnabled(!targetValue); // Revertir si falla BD
+      Alert.alert("Error", "No se pudo guardar la configuración.");
+    }
+  };
+
+  const toggleNotifications = async () => {
+    if (!user) return;
+    const targetValue = !notificationsEnabled;
     
-    // 2. Refrescar el contexto para que toda la app sepa del cambio
-    await refreshUser();
+    setNotificationsEnabled(targetValue);
+
+    const success = await DatabaseService.updateUserSettings(user.email, {
+      allowNotifications: targetValue,
+      allowCamera: cameraEnabled
+    });
+
+    if (success) {
+      await refreshUser();
+    } else {
+      setNotificationsEnabled(!targetValue);
+      Alert.alert("Error", "No se pudo guardar la configuración.");
+    }
   };
 
   return (
@@ -59,7 +120,7 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
           <Switch
             trackColor={{ false: "#767577", true: COLORS.primary }}
             thumbColor={notificationsEnabled ? "#fff" : "#f4f3f4"}
-            onValueChange={() => toggleSwitch('notifications')}
+            onValueChange={toggleNotifications}
             value={notificationsEnabled}
           />
         </View>
@@ -73,7 +134,7 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
           <Switch
             trackColor={{ false: "#767577", true: COLORS.primary }}
             thumbColor={cameraEnabled ? "#fff" : "#f4f3f4"}
-            onValueChange={() => toggleSwitch('camera')}
+            onValueChange={toggleCamera} // Usamos la nueva función
             value={cameraEnabled}
           />
         </View>
@@ -92,7 +153,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, 
     paddingVertical: 15,
     backgroundColor: COLORS.white,
-    elevation: 2 
+    elevation: 2,
+    paddingTop: Platform.OS === 'android' ? 40 : 20,
   },
   backButton: { padding: 5 },
   title: { fontSize: FONT_SIZES.large, fontWeight: 'bold', color: COLORS.text },

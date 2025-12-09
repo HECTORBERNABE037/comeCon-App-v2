@@ -258,7 +258,7 @@ class DatabaseService {
       let query = 'UPDATE products SET title=?, subtitle=?, price=?, description=?, visible=?';
       const params: any[] = [product.title, product.subtitle, parseFloat(product.price!), product.description, product.visible?1:0];
       
-      // Si viene imagen, la actualizamos
+      // Si viene imagen nueva, agregamos al query
       if (product.image) {
         query += ', image=?';
         params.push(product.image);

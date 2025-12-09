@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../types';
 
-// Definimos las pestañas activas para el cliente
 type ClientTab = 'Home' | 'Tracking' | 'Settings' | 'Profile' | null;
 
 interface Props {
@@ -32,24 +31,17 @@ export const ClientBottomNavBar: React.FC<Props> = ({ activeRoute }) => {
     navigation.navigate(route);
   };
 
-  const handleComingSoon = () => {
-    Alert.alert("En desarrollo", "Esta sección estará lista pronto.");
-  };
-
   return (
     <View style={styles.container}>
       
-      {/* 1. Botón Salir */}
       <TouchableOpacity style={styles.navItem} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={28} color="#C4C4C4" />
       </TouchableOpacity>
 
-      {/* 2. Botón Seguimiento (Reloj/Lista) */}
       <TouchableOpacity 
         style={[styles.navItem, activeRoute === 'Tracking' && styles.activeItem]} 
         onPress={() => handleNavigation('ClientOrderTracking')} 
       >
-        {/* Usamos un icono de "Order/Receipt" similar a seguimiento */}
         <Ionicons 
           name="receipt-outline" 
           size={26} 
@@ -57,7 +49,6 @@ export const ClientBottomNavBar: React.FC<Props> = ({ activeRoute }) => {
         />
       </TouchableOpacity>
 
-      {/* 3. Botón Home (Central Flotante) */}
       <View style={styles.centerButtonContainer}>
         <TouchableOpacity 
           style={styles.centerButton} 
@@ -67,15 +58,18 @@ export const ClientBottomNavBar: React.FC<Props> = ({ activeRoute }) => {
         </TouchableOpacity>
       </View>
 
-      {/* 4. Botón Settings */}
+      {/* Botón Configuración Activo */}
       <TouchableOpacity 
         style={[styles.navItem, activeRoute === 'Settings' && styles.activeItem]} 
-        onPress={handleComingSoon}
+        onPress={() => handleNavigation('Settings')} // <--- CONECTADO
       >
-        <Ionicons name="settings-outline" size={28} color="#C4C4C4" />
+        <Ionicons 
+          name="settings-outline" 
+          size={28} 
+          color={activeRoute === 'Settings' ? COLORS.primary : "#C4C4C4"} 
+        />
       </TouchableOpacity>
 
-      {/* 5. Botón Perfil */}
       <TouchableOpacity 
         style={[styles.navItem, activeRoute === 'Profile' && styles.activeItem]} 
         onPress={() => handleNavigation('ClientProfile')}
@@ -97,13 +91,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 90, // Altura cómoda
+    height: 90, 
     backgroundColor: COLORS.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 15,
-    borderTopLeftRadius: 30, // Bordes redondeados superiores
+    borderTopLeftRadius: 30, 
     borderTopRightRadius: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
@@ -123,7 +117,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
   },
   centerButtonContainer: {
-    marginTop: -50, // Flotando hacia arriba
+    marginTop: -50, 
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -140,6 +134,6 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
     borderWidth: 5,
-    borderColor: '#f2f2f2' // Borde para separar del fondo
+    borderColor: '#f2f2f2'
   }
 });

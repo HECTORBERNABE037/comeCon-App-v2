@@ -20,7 +20,7 @@ import { EditClientProfileScreen } from "../screens/client/EditClientProfileScre
 import { CartScreen } from "../screens/client/CartScreen";
 import { CheckoutScreen } from "../screens/client/CheckoutScreen";
 import { AddCardScreen } from "../screens/client/AddCardScreen";
-
+import { SettingsScreen } from "../screens/common/SettingsScreen";
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -50,6 +50,14 @@ const StackNavigator: React.FC = () => {// sitaxis para definir un compnenete en
         component={HomeScreen}
         options={{
           title: "ComeCon", // Título de la app
+        }}
+      />
+      {/*Pantalla de ajustes para ambos roles */}
+      <Stack.Screen
+        name="Settings"// tiene que coincidir con el nombre en rootStackParamList
+        component={SettingsScreen}
+        options={{
+          headerShown:false
         }}
       />
       {/*Pantalla de detalles */}

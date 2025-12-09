@@ -8,7 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import { AdminBottomNavBar } from '../../components/AdminBottomNavBar';
 import { COLORS, FONT_SIZES, RootStackParamList } from '../../../types';
 import { useAuth } from '../../context/AuthContext';
-import { showImageOptions } from '../../utils/ImagePickerHelper'; // Tu helper de cámara
+import { showImageOptions } from '../../utils/ImagePickerHelper'; // Helper de cámara
 import DatabaseService from '../../services/DatabaseService';
 
 type AdminProfileNavigationProp = StackNavigationProp<RootStackParamList, 'AdminProfile'>;
@@ -17,24 +17,29 @@ export const AdminProfileScreen = () => {
   const navigation = useNavigation<AdminProfileNavigationProp>();
   const { user, refreshUser } = useAuth();
 
+  // Recargamos datos al entrar a la pantalla
   useFocusEffect(React.useCallback(() => { refreshUser(); }, []));
 
   const handleEditProfile = () => {
     navigation.navigate('EditAdminProfile');
   };
 
+  // Función para manejar el botón de cámara
   const handleChangePhoto = () => {
+    // 1. Verificamos permiso guardado en BD
     if (!user?.allowCamera) {
-      Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración.");
+      Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración para cambiar tu foto.");
       return;
     }
     
+    // 2. Abrimos opciones (Cámara/Galería)
     showImageOptions(async (uri) => {
-      // CORRECCIÓN: Usamos el método específico para imagen
+      // 3. AQUÍ ESTABA EL ERROR: Ahora usamos el método correcto updateUserImage
       const success = await DatabaseService.updateUserImage(user.email, uri);
       
       if (success) {
-        refreshUser(); // Actualizar contexto para ver la nueva foto
+        refreshUser(); // Actualizar contexto para ver la nueva foto al instante
+        Alert.alert("Éxito", "Foto de perfil actualizada.");
       } else {
         Alert.alert("Error", "No se pudo guardar la foto.");
       }
@@ -57,7 +62,7 @@ export const AdminProfileScreen = () => {
       <View style={styles.content}>
         <View style={styles.profileImageContainer}>
           <Image source={userImage} style={styles.profileImage} />
-          {/* Botón de Cámara */}
+          {/* Botón de Cámara sobre la imagen */}
           <TouchableOpacity style={styles.editIconContainer} onPress={handleChangePhoto}>
              <Feather name="camera" size={16} color={COLORS.text} />
           </TouchableOpacity>

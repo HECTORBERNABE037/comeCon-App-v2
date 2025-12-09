@@ -206,4 +206,5 @@ export type RootStackParamList = {
   Cart: undefined;
   Checkout: undefined;
   AddCard: undefined;
+  Settings:undefined;
 };
