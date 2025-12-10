@@ -133,7 +133,7 @@ export interface CartItem extends Platillo {
 }
 
 export interface Order extends ProductBase {
-  status: 'pending' | 'process' | 'completed' | 'cancelled';
+  status: 'Pendiente' | 'En proceso' | 'completado' | 'cancelado';
   date?: string;
   deliveryTime?: string; 
   historyNotes?: string;
