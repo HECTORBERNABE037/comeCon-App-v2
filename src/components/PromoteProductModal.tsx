@@ -65,23 +65,19 @@ export const PromoteProductModal: React.FC<Props> = ({ visible, product, onClose
 
   const handleSave = () => {
     if (validate() && product) {
-      // Nota: PromoteProduct usualmente no actualiza la imagen del producto, solo crea la promo.
-      // Pero si el usuario cambia la foto aquí, deberíamos actualizar el producto también.
-      // Para este caso, asumiremos que solo se guardan datos de promo y la imagen es visual.
-      // Si quisieras guardar la imagen, tendrías que llamar a un updateProduct extra.
       onSave(product.id.toString(), { ...formData, visible: isActive, id: product.id });
     } else {
       Alert.alert("Atención", "Revisa el formulario. La oferta debe ser menor a $" + basePrice);
     }
   };
 
-  const handleEditImage = () => {
-    if (!user?.allowCamera) {
-      Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración.");
-      return;
-    }
-    showImageOptions(setNewImageUri);
-  };
+  // const handleEditImage = () => {
+  //   if (!user?.allowCamera) {
+  //     Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración.");
+  //     return;
+  //   }
+  //   showImageOptions(setNewImageUri);
+  // };
 
   if (!product) return null;
   const displayImage = newImageUri ? { uri: newImageUri } : product.image;
@@ -96,9 +92,9 @@ export const PromoteProductModal: React.FC<Props> = ({ visible, product, onClose
               <Text style={styles.productTitle}>{product.title}</Text>
               <View style={styles.imageContainer}>
                 <Image source={displayImage} style={[styles.productImage, !isActive && { opacity: 0.5 }]} />
-                <TouchableOpacity style={styles.editImageButton} onPress={handleEditImage}>
+                {/* <TouchableOpacity style={styles.editImageButton} onPress={handleEditImage}>
                   <Feather name="edit-2" size={18} color={COLORS.text} />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 {!isActive && (<View style={styles.hiddenBadge}><Text style={styles.hiddenText}>OCULTO</Text></View>)}
               </View>
             </View>

@@ -5,14 +5,12 @@ import {
   StyleSheet, 
   Switch, 
   SafeAreaView, 
-  TouchableOpacity, 
   StatusBar,
   Alert,
   Linking, 
   Platform
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker'; // IMPORTANTE: Para pedir permisos
+import * as ImagePicker from 'expo-image-picker'; 
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONT_SIZES } from '../../../types';
 import DatabaseService from '../../services/DatabaseService';
@@ -20,12 +18,9 @@ import DatabaseService from '../../services/DatabaseService';
 export const SettingsScreen = ({ navigation }: { navigation: any }) => {
   const { user, refreshUser } = useAuth();
   
-  // Inicializamos estados con la info del usuario
-  // Si user.allowCamera es 1 (true) o 0 (false), lo respetamos.
   const [notificationsEnabled, setNotificationsEnabled] = useState(!!user?.allowNotifications);
   const [cameraEnabled, setCameraEnabled] = useState(!!user?.allowCamera);
 
-  // Sincronizar estado local si el usuario cambia en el contexto
   useEffect(() => {
     if (user) {
       setNotificationsEnabled(!!user.allowNotifications);
@@ -36,14 +31,12 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
   const toggleCamera = async () => {
     if (!user) return;
 
-    const targetValue = !cameraEnabled; // El valor al que queremos cambiar
+    const targetValue = !cameraEnabled; 
 
-    // Si el usuario quiere ACTIVAR la cámara, primero pedimos permiso al OS
     if (targetValue === true) {
       const { status, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        // Permiso denegado
         if (!canAskAgain) {
           Alert.alert(
             "Permiso necesario",
@@ -56,25 +49,21 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
         } else {
           Alert.alert("Permiso denegado", "Necesitamos acceso a la cámara para tomar fotos de tus productos.");
         }
-        // No activamos el switch ni guardamos en BD
         return;
       }
     }
 
-    // Si llegamos aquí, es porque tenemos permiso (o estamos desactivando)
-    // 1. Actualizamos visualmente
     setCameraEnabled(targetValue);
 
-    // 2. Guardamos en BD
     const success = await DatabaseService.updateUserSettings(user.email, {
       allowNotifications: notificationsEnabled,
-      allowCamera: targetValue // Nuevo valor
+      allowCamera: targetValue 
     });
 
     if (success) {
-      await refreshUser(); // Actualizar contexto global
+      await refreshUser(); 
     } else {
-      setCameraEnabled(!targetValue); // Revertir si falla BD
+      setCameraEnabled(!targetValue); 
       Alert.alert("Error", "No se pudo guardar la configuración.");
     }
   };
@@ -102,13 +91,10 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={28} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Configuración</Text>
-        <View style={{width: 28}} />
+      {/* Header Idéntico a AdminProfileScreen */}
+      <View style={styles.headerCard}>
+        <Text style={styles.headerTitle}>Configuración</Text>
+        <View style={styles.headerUnderline} />
       </View>
 
       <View style={styles.content}>
@@ -134,7 +120,7 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
           <Switch
             trackColor={{ false: "#767577", true: COLORS.primary }}
             thumbColor={cameraEnabled ? "#fff" : "#f4f3f4"}
-            onValueChange={toggleCamera} // Usamos la nueva función
+            onValueChange={toggleCamera} 
             value={cameraEnabled}
           />
         </View>
@@ -146,19 +132,38 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F2' },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingVertical: 15,
-    backgroundColor: COLORS.white,
-    elevation: 2,
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
+  
+  // Estilos de Header copiados de AdminProfileScreen
+  headerCard: {
+    alignItems: 'center',
+    marginTop: Platform.OS === 'android' ? 40 : 10,
+    marginBottom: 15,
   },
-  backButton: { padding: 5 },
-  title: { fontSize: FONT_SIZES.large, fontWeight: 'bold', color: COLORS.text },
-  content: { marginTop: 20, padding: 20, backgroundColor: COLORS.white, borderRadius: 15, marginHorizontal: 15 },
+  headerTitle: {
+    fontSize: FONT_SIZES.xlarge,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  headerUnderline: {
+    height: 3,
+    width: 250, // Ancho de la línea naranja
+    backgroundColor: COLORS.primary,
+    marginTop: 5,
+  },
+
+  // Contenido
+  content: { 
+    marginTop: 10, 
+    padding: 20, 
+    backgroundColor: COLORS.white, 
+    borderRadius: 15, 
+    marginHorizontal: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
   sectionTitle: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.primary, marginBottom: 20 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
   label: { fontSize: FONT_SIZES.medium, color: COLORS.text, fontWeight: '500' },
