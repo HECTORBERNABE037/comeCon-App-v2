@@ -8,7 +8,7 @@ import RegisterScreen from "../screens/auth/RegisterScreen";
 import { ForgotPasswordScreen } from "../screens/auth/ForgotPasswordScreen"; 
 import { ResetCodeScreen } from "../screens/auth/ResetCodeScreen";
 import { SetNewPasswordScreen } from "../screens/auth/SetNewPasswordScreen";
-// import { ProductDetailScreen } from "../screens/Product/ProducDetailsScreen";
+import { ProductDetailScreen } from "../screens/Product/ProducDetailsScreen";
 import { EditAdminProfileScreen } from "../screens/admin/EditAdminProfileScreen";
 import { EditClientProfileScreen } from "../screens/client/EditClientProfileScreen";
 // import { CartScreen } from "../screens/client/CartScreen";
@@ -44,8 +44,8 @@ const StackNavigator: React.FC = () => {
       <Stack.Screen name="ClientTabsNavigator" component={ClientTabs} />
 
       {/* Pantallas secundarias (se abren sobre las pestañas, sin barra inferior) */}
-      {/* <Stack.Screen name="ProductDetails" component={ProductDetailScreen} />
-      <Stack.Screen name="Cart" component={CartScreen} />
+      <Stack.Screen name="ProductDetails" component={ProductDetailScreen} />
+      {/* <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} /> */}
       <Stack.Screen name="AddCard" component={AddCardScreen} />
       <Stack.Screen name="EditAdminProfile" component={EditAdminProfileScreen} />

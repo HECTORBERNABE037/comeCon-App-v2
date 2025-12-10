@@ -10,7 +10,8 @@ import {
   StatusBar,
   Platform,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView // <--- Importado
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -22,20 +23,13 @@ type Props = StackScreenProps<RootStackParamList, 'EditAdminProfile'>;
 
 export const EditAdminProfileScreen: React.FC<Props> = ({ navigation }) => {
   
-  const { user, refreshUser } = useAuth(); // Datos del contexto
+  const { user, refreshUser } = useAuth(); 
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState<AdminProfileFormData>({
-    fullName: '',
-    nickname: '',
-    email: '',
-    phone: '',
-    gender: '',
-    country: '',
-    address: ''
+    fullName: '', nickname: '', email: '', phone: '', gender: '', country: '', address: ''
   });
 
-  // Pre-llenar el formulario con los datos actuales del contexto
   useEffect(() => {
     if (user) {
       setFormData({
@@ -59,28 +53,23 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert("Error", "El nombre es obligatorio");
       return;
     }
-
-    if (!user) return; // Seguridad
+    if (!user) return; 
 
     setLoading(true);
 
     try {
-      // 1. Guardar cambios en SQLite usando el email del usuario logueado
       const success = await DatabaseService.updateUserProfile(user.email, formData);
       
       if (success) {
-        // 2. IMPORTANTE: Actualizar el contexto global para que el perfil muestre los datos nuevos
         await refreshUser();
-        
         Alert.alert("Éxito", "Información actualizada correctamente", [
           { text: "OK", onPress: () => navigation.goBack() }
         ]);
       } else {
-        Alert.alert("Error", "No se pudo actualizar el perfil en la base de datos.");
+        Alert.alert("Error", "No se pudo actualizar el perfil.");
       }
     } catch (error) {
       Alert.alert("Error", "Ocurrió un problema inesperado.");
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -101,91 +90,90 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ width: 28 }} /> 
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        <Text style={styles.sectionTitle}>Editar Información</Text>
+      {/* SOLUCIÓN TECLADO */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          
+          <Text style={styles.sectionTitle}>Editar Información</Text>
 
-        {/* Nombre Completo */}
-        <Text style={styles.label}>Nombre Completo</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.fullName}
-          onChangeText={(text) => handleChange('fullName', text)}
-          editable={!loading}
-        />
+          <Text style={styles.label}>Nombre Completo</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.fullName}
+            onChangeText={(text) => handleChange('fullName', text)}
+            editable={!loading}
+          />
 
-        {/* Nickname */}
-        <Text style={styles.label}>Nickname</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.nickname}
-          onChangeText={(text) => handleChange('nickname', text)}
-          editable={!loading}
-        />
+          <Text style={styles.label}>Nickname</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.nickname}
+            onChangeText={(text) => handleChange('nickname', text)}
+            editable={!loading}
+          />
 
-        {/* Email (Solo Lectura - Es la llave primaria/login) */}
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={[styles.input, styles.readOnlyInput]}
-          value={formData.email}
-          editable={false} 
-        />
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={[styles.input, styles.readOnlyInput]}
+            value={formData.email}
+            editable={false} 
+          />
 
-        {/* Telefono */}
-        <Text style={styles.label}>Telefono</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.phone}
-          onChangeText={(text) => handleChange('phone', text)}
-          keyboardType="phone-pad"
-          editable={!loading}
-        />
+          <Text style={styles.label}>Telefono</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.phone}
+            onChangeText={(text) => handleChange('phone', text)}
+            keyboardType="phone-pad"
+            editable={!loading}
+          />
 
-        {/* Fila: Genero y País */}
-        <View style={styles.rowContainer}>
-          <View style={styles.halfInputContainer}>
-            <Text style={styles.label}>Genero</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.gender}
-              onChangeText={(text) => handleChange('gender', text)}
-              editable={!loading}
-            />
+          <View style={styles.rowContainer}>
+            <View style={styles.halfInputContainer}>
+              <Text style={styles.label}>Genero</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.gender}
+                onChangeText={(text) => handleChange('gender', text)}
+                editable={!loading}
+              />
+            </View>
+            <View style={[styles.halfInputContainer, { marginLeft: 15 }]}>
+              <Text style={styles.label}>País</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.country}
+                onChangeText={(text) => handleChange('country', text)}
+                editable={!loading}
+              />
+            </View>
           </View>
-          <View style={[styles.halfInputContainer, { marginLeft: 15 }]}>
-            <Text style={styles.label}>País</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.country}
-              onChangeText={(text) => handleChange('country', text)}
-              editable={!loading}
-            />
-          </View>
-        </View>
 
-        {/* Direccion */}
-        <Text style={styles.label}>Direccion</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.address}
-          onChangeText={(text) => handleChange('address', text)}
-          editable={!loading}
-        />
+          <Text style={styles.label}>Direccion</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.address}
+            onChangeText={(text) => handleChange('address', text)}
+            editable={!loading}
+          />
 
-        {/* Botón Actualizar */}
-        <TouchableOpacity 
-          style={[styles.updateButton, loading && {opacity: 0.7}]} 
-          onPress={handleUpdate}
-          disabled={loading}
-        >
-          {loading ? (
-             <ActivityIndicator color={COLORS.white} />
-          ) : (
-             <Text style={styles.updateButtonText}>ACTUALIZAR</Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.updateButton, loading && {opacity: 0.7}]} 
+            onPress={handleUpdate}
+            disabled={loading}
+          >
+            {loading ? (
+               <ActivityIndicator color={COLORS.white} />
+            ) : (
+               <Text style={styles.updateButtonText}>ACTUALIZAR</Text>
+            )}
+          </TouchableOpacity>
 
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

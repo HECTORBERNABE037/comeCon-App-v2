@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,43 +9,85 @@ import {
   ScrollView, 
   StatusBar,
   Platform,
-  Alert
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView // <--- Importante
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
-import { COLORS, FONT_SIZES, ClientProfileFormData,RootStackParamList } from '../../../types';
+import { RootStackParamList, COLORS, FONT_SIZES, ClientProfileFormData } from '../../../types';
+import DatabaseService from '../../services/DatabaseService';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = StackScreenProps<RootStackParamList, 'EditClientProfile'>;
 
 export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
   
-  // Datos simulados iniciales para el Cliente
+  const { user, refreshUser } = useAuth(); 
+  const [loading, setLoading] = useState(false);
+
+  // Inicializar estado con estructura vacía
   const [formData, setFormData] = useState<ClientProfileFormData>({
-    fullName: 'Juan Pérez López',
-    nickname: 'Juan P.',
-    email: 'cliente1@comecon.com',
-    phone: '5512345678',
-    gender: 'Masculino',
-    country: 'Mexico',
-    address: 'Calle Falsa 123, Col. Centro'
+    fullName: '',
+    nickname: '',
+    email: '',
+    phone: '',
+    gender: '',
+    country: '',
+    address: ''
   });
+
+  // Pre-llenar datos del usuario real
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        fullName: user.nombre || '',
+        nickname: user.nickname || '',
+        email: user.email || '',
+        phone: user.telefono || '',
+        gender: user.gender || '',
+        country: user.country || '',
+        address: user.address || ''
+      });
+    }
+  }, [user]);
 
   const handleChange = (field: keyof ClientProfileFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleUpdate = () => {
-    console.log("Datos actualizados (Cliente):", formData);
-    Alert.alert("Éxito", "Información actualizada correctamente", [
-      { text: "OK", onPress: () => navigation.goBack() }
-    ]);
+  const handleUpdate = async () => {
+    if (!formData.fullName.trim()) {
+      Alert.alert("Error", "El nombre es obligatorio");
+      return;
+    }
+    if (!user) return;
+
+    setLoading(true);
+
+    try {
+      // Reutilizamos updateUserProfile (funciona igual para admin y cliente)
+      const success = await DatabaseService.updateUserProfile(user.email, formData);
+      
+      if (success) {
+        await refreshUser(); // Refrescar contexto para ver cambios en perfil
+        Alert.alert("Éxito", "Información actualizada correctamente", [
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        Alert.alert("Error", "No se pudo actualizar el perfil.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Ocurrió un problema inesperado.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F2F2F2" />
       
-      {/* Header con Flecha Atrás */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={28} color={COLORS.text} />
@@ -57,76 +99,90 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ width: 28 }} /> 
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        <Text style={styles.sectionTitle}>Editar Información</Text>
+      {/* SOLUCIÓN TECLADO: KeyboardAvoidingView envuelve el ScrollView */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          
+          <Text style={styles.sectionTitle}>Editar Información</Text>
 
-        {/* Nombre Completo */}
-        <Text style={styles.label}>Nombre Completo</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.fullName}
-          onChangeText={(text) => handleChange('fullName', text)}
-        />
+          <Text style={styles.label}>Nombre Completo</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.fullName}
+            onChangeText={(text) => handleChange('fullName', text)}
+            editable={!loading}
+          />
 
-        {/* Nickname */}
-        <Text style={styles.label}>Nickname</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.nickname}
-          onChangeText={(text) => handleChange('nickname', text)}
-        />
+          <Text style={styles.label}>Nickname</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.nickname}
+            onChangeText={(text) => handleChange('nickname', text)}
+            editable={!loading}
+          />
 
-        {/* Email (Solo Lectura) */}
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={[styles.input, styles.readOnlyInput]}
-          value={formData.email}
-          editable={false}
-        />
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={[styles.input, styles.readOnlyInput]}
+            value={formData.email}
+            editable={false}
+          />
 
-        {/* Telefono (Solo Lectura) */}
-        <Text style={styles.label}>Telefono</Text>
-        <TextInput
-          style={[styles.input, styles.readOnlyInput]}
-          value={formData.phone}
-          editable={false}
-        />
+          <Text style={styles.label}>Telefono</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.phone}
+            onChangeText={(text) => handleChange('phone', text)}
+            keyboardType="phone-pad"
+            editable={!loading}
+          />
 
-        {/* Fila: Genero y País */}
-        <View style={styles.rowContainer}>
-          <View style={styles.halfInputContainer}>
-            <Text style={styles.label}>Genero</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.gender}
-              onChangeText={(text) => handleChange('gender', text)}
-            />
+          <View style={styles.rowContainer}>
+            <View style={styles.halfInputContainer}>
+              <Text style={styles.label}>Genero</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.gender}
+                onChangeText={(text) => handleChange('gender', text)}
+                editable={!loading}
+              />
+            </View>
+            <View style={[styles.halfInputContainer, { marginLeft: 15 }]}>
+              <Text style={styles.label}>País</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.country}
+                onChangeText={(text) => handleChange('country', text)}
+                editable={!loading}
+              />
+            </View>
           </View>
-          <View style={[styles.halfInputContainer, { marginLeft: 15 }]}>
-            <Text style={styles.label}>País</Text>
-            <TextInput
-              style={[styles.input, styles.readOnlyInput]}
-              value={formData.country}
-              editable={false}
-            />
-          </View>
-        </View>
 
-        {/* Direccion */}
-        <Text style={styles.label}>Direccion</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.address}
-          onChangeText={(text) => handleChange('address', text)}
-        />
+          <Text style={styles.label}>Direccion</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.address}
+            onChangeText={(text) => handleChange('address', text)}
+            editable={!loading}
+          />
 
-        {/* Botón Actualizar */}
-        <TouchableOpacity style={styles.updateButton} onPress={handleUpdate}>
-          <Text style={styles.updateButtonText}>ACTUALIZAR</Text>
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.updateButton, loading && { opacity: 0.7 }]} 
+            onPress={handleUpdate}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Text style={styles.updateButtonText}>ACTUALIZAR</Text>
+            )}
+          </TouchableOpacity>
 
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

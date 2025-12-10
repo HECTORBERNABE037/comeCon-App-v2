@@ -383,6 +383,39 @@ class DatabaseService {
       throw error;
     }
   }
+  // Obtener órdenes de un usuario específico (Para el Cliente)
+  async getOrdersByUserId(userId: number): Promise<any[]> {
+    if (!this.db) return [];
+    try {
+      const query = `
+        SELECT 
+          o.id, o.status, o.total, o.date, o.deliveryTime, o.historyNotes,
+          p.title, p.subtitle, p.image
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.orderId
+        JOIN products p ON oi.productId = p.id
+        WHERE o.userId = ?
+        GROUP BY o.id 
+        ORDER BY o.id DESC
+      `;
+      const orders = await this.db.getAllAsync(query, [userId]);
+      
+      return orders.map((o: any) => ({
+        id: o.id.toString(),
+        title: o.title,
+        subtitle: o.subtitle,
+        price: o.total.toString(),
+        image: o.image || 'logoApp',
+        status: o.status,
+        date: o.date,
+        deliveryTime: o.deliveryTime,
+        historyNotes: o.historyNotes
+      }));
+    } catch (error) {
+      console.error("Error cargando órdenes de cliente:", error);
+      return [];
+    }
+  }
 }
 
 
