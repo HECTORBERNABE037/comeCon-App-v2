@@ -25,6 +25,7 @@ import { PromoteProductModal } from "../../components/PromoteProductModal";
 import { AddProductModal } from "../../components/AddProductModal"; 
 // Ya no importamos AdminBottomNavBar aquí porque el TabNavigator lo maneja
 import DatabaseService from '../../services/DatabaseService';
+import { advancedSearch } from "../../utils/searchHelper";
 
 // DEFINICIÓN DE TIPO DE NAVEGACIÓN COMPUESTO (Tab + Stack)
 type HomeAdminScreenNavigationProp = CompositeNavigationProp<
@@ -87,13 +88,7 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
     }, [])
   );
 
-  const filteredProducts = productList.filter(product => {
-    const query = searchQuery.toLowerCase();
-    return (
-      product.title.toLowerCase().includes(query) ||
-      product.subtitle.toLowerCase().includes(query)
-    );
-  });
+  const filteredProducts = advancedSearch(productList, searchQuery, ['title', 'subtitle']);
 
   const openAddModal = () => {
     setIsAddModalVisible(true);

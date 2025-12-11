@@ -13,29 +13,23 @@ import {
   ActivityIndicator
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, CompositeNavigationProp } from "@react-navigation/native"; 
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { MaterialIcons, FontAwesome5, Feather, Ionicons } from "@expo/vector-icons";
 
-// Importamos RootStackParamList Y ClientTabParamList
 import { RootStackParamList, ClientTabParamList, COLORS, FONT_SIZES, Platillo } from "../../../types";
-// Ya no importamos ClientBottomNavBar aquí
 import DatabaseService from '../../services/DatabaseService';
+import { useAuth } from "../../context/AuthContext";
+import { advancedSearch } from "../../utils/searchHelper"; // Importamos el buscador avanzado
 
-// TIPO DE NAVEGACIÓN COMPUESTO
+// Tipos de Navegación
 type HomeScreenNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<ClientTabParamList, 'HomeClientTab'>,
   StackNavigationProp<RootStackParamList>
 >;
 
-interface HomeScreenProps {
-  navigation: HomeScreenNavigationProp;
-}
-
 const resolveImage = (imageName: string) => {
-  if (imageName?.startsWith('file://')) {
-    return { uri: imageName };
-  }
+  if (imageName?.startsWith('file://')) return { uri: imageName };
   switch (imageName) {
     case 'bowlFrutas': return require('../../../assets/bowlFrutas.png');
     case 'tostadaAguacate': return require('../../../assets/tostadaAguacate.png');
@@ -45,24 +39,21 @@ const resolveImage = (imageName: string) => {
   }
 };
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ navigation }) => {
+  const { user } = useAuth();
 
   const [allProducts, setAllProducts] = useState<Platillo[]>([]);
   const [promotions, setPromotions] = useState<Platillo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [cartCount, setCartCount] = useState(0); // Estado para el badge del carrito
 
-  const handleComingSoon = (feature: string) => {
-    // Alert.alert(feature, "Esta funcionalidad estará disponible próximamente.");
-  };
-  
-  const handleCart = () => {
-    navigation.navigate('Cart');
-  };
+  const handleCart = () => navigation.navigate('Cart');
 
   const loadData = async () => {
     setLoading(true);
     try {
+      // 1. Cargar Productos
       const productsFromDB = await DatabaseService.getProducts();
       
       const formattedProducts: Platillo[] = productsFromDB
@@ -79,12 +70,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }));
 
       setAllProducts(formattedProducts);
+      setPromotions(formattedProducts.filter(p => p.promotionalPrice));
 
-      const activePromos = formattedProducts.filter(p => p.promotionalPrice);
-      setPromotions(activePromos);
+      // 2. Cargar Contador del Carrito (Reactivo)
+      if (user) {
+        const cartItems = await DatabaseService.getCartItems(Number(user.id));
+        // Sumamos la cantidad de cada item (ej: 2 cafés + 1 pan = 3)
+        const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+        setCartCount(totalItems);
+      }
 
     } catch (error) {
-      console.error("Error cargando home:", error);
+      console.error("Error home:", error);
     } finally {
       setLoading(false);
     }
@@ -93,33 +90,47 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, [user]) // Se ejecuta al enfocar y si cambia el usuario
   );
 
+  // Filtrado Avanzado
+  const filteredProducts = advancedSearch(allProducts, searchQuery, ['title', 'subtitle', 'description']);
+
+  // Tarjeta Horizontal (Promociones)
   const renderPromoCard = ({ item }: { item: Platillo }) => (
     <TouchableOpacity style={styles.promoCard} onPress={() => navigation.navigate('ProductDetails', { platillo: item })}>
       <Image source={item.image} style={styles.promoImage} />
-      <Text style={styles.promoTitle}>{item.title}</Text>
-      <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
-      <View style={styles.priceContainer}>
-        <Text style={styles.promoPrice}>${item.promotionalPrice}</Text>
-        <Text style={styles.promoPriceOld}>${item.price}</Text>
+      <View style={styles.promoOverlay}>
+        <Text style={styles.promoTitle} numberOfLines={1}>{item.title}</Text>
+        <View style={styles.priceTagContainer}>
+           <Text style={styles.promoPrice}>${item.promotionalPrice}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
 
+  // Tarjeta Vertical Detallada (Menú General - Estilo Figma)
   const renderPlatilloCard = ({ item }: { item: Platillo }) => {
     const finalPrice = item.promotionalPrice || item.price;
     const isPromo = !!item.promotionalPrice;
 
     return (
-      <TouchableOpacity style={styles.platilloCard} onPress={() => navigation.navigate('ProductDetails', { platillo: item })}>
-        <Image source={item.image} style={styles.platilloImage} />
-        <View style={styles.platilloTextContainer}>
-          <Text style={styles.platilloTitle}>{item.title}</Text>
-          <Text style={styles.platilloSubtitle}>{item.subtitle}</Text>
-          <Text style={[styles.platilloPrice, isPromo && { color: '#2E7D32' }]}>
-            ${finalPrice}
+      <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('ProductDetails', { platillo: item })}>
+        {/* Columna Izquierda: Imagen */}
+        <Image source={item.image} style={styles.menuImage} />
+        
+        {/* Columna Derecha: Info */}
+        <View style={styles.menuInfo}>
+          <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+             <Text style={styles.menuTitle} numberOfLines={1}>{item.title}</Text>
+             <Text style={[styles.menuPrice, isPromo && { color: '#2E7D32' }]}>${finalPrice}</Text>
+          </View>
+          
+          <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+          
+          {/* Descripción (máximo 2 líneas) */}
+          <Text style={styles.menuDescription} numberOfLines={2}>
+            {item.description || "Delicioso platillo preparado con ingredientes frescos."}
           </Text>
         </View>
       </TouchableOpacity>
@@ -130,6 +141,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
 
+      {/* HEADER */}
       <View style={styles.headerCard}>
           <View style={{ width: 40 }} />
           <Text style={styles.headerTitle}>ComeCon</Text>
@@ -137,9 +149,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <TouchableOpacity onPress={handleCart}>
             <View>
               <Feather name="shopping-cart" size={28} color={COLORS.text} />
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>2</Text> 
-              </View>
+              {cartCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount}</Text> 
+                </View>
+              )}
             </View>
           </TouchableOpacity>
       </View>
@@ -149,11 +163,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
           
+          {/* BUSCADOR */}
           <View style={styles.searchContainer}>
             <View style={styles.searchInputWrapper}>
               <Ionicons name="search" size={22} color={COLORS.placeholder} style={styles.searchIcon} />
               <TextInput 
-                placeholder="Buscar platillo..."
+                placeholder="¿Qué se te antoja hoy?"
                 placeholderTextColor={COLORS.placeholder}
                 style={styles.searchInput}
                 value={searchQuery}
@@ -162,20 +177,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* <View style={styles.categoryContainer}>
-            <TouchableOpacity style={styles.categoryButton} onPress={() => handleComingSoon("Menú")}>
-              <MaterialIcons name="menu-book" size={24} color={COLORS.primary} />
-              <Text style={styles.categoryButtonText}>Menú</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.categoryButton, {backgroundColor: COLORS.primary + '20'}]} onPress={() => handleComingSoon("Promociones")}>
-              <FontAwesome5 name="star" size={24} color={COLORS.primary} />
-              <Text style={styles.categoryButtonText}>Promociones</Text>
-            </TouchableOpacity>
-          </View> */}
-
-          {promotions.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Promociones Destacadas</Text>
+          {/* PROMOCIONES (Carrusel Horizontal) */}
+          {promotions.length > 0 && !searchQuery && (
+            <View style={{marginBottom: 20}}>
+              <Text style={styles.sectionTitle}>Promociones</Text>
               <FlatList
                 data={promotions}
                 renderItem={renderPromoCard}
@@ -184,19 +189,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.listPadding}
               />
-            </>
+            </View>
           )}
 
-          <Text style={styles.sectionTitle}>Platillos destacados</Text>
-          <FlatList
-            data={allProducts.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()))}
-            renderItem={renderPlatilloCard}
-            keyExtractor={item => item.id.toString()}
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.listPadding}
-            ListEmptyComponent={<Text style={{marginLeft: 5, color: '#999'}}>No se encontraron platillos.</Text>}
-          />
+          {/* MENÚ COMPLETO (Lista Vertical) */}
+          <Text style={styles.sectionTitle}>Nuestro Menú</Text>
+          <View>
+            {filteredProducts.map((item) => (
+                <View key={item.id.toString()}>
+                    {renderPlatilloCard({item})}
+                </View>
+            ))}
+            {filteredProducts.length === 0 && (
+                <Text style={styles.emptySearchText}>No encontramos coincidencias para "{searchQuery}"</Text>
+            )}
+          </View>
 
         </ScrollView>
       )}
@@ -205,72 +212,68 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: '#FAFAFA' }, // Fondo un poco más limpio
   headerCard: {
     backgroundColor: COLORS.white,
     paddingTop: Platform.OS === 'android' ? 40 : 20,
-    paddingBottom: 20,
+    paddingBottom: 15,
     paddingHorizontal: 25,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    elevation: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 3,
     zIndex: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: COLORS.text },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.primary, letterSpacing: 0.5 },
   cartBadge: {
-    position: 'absolute', top: -5, right: -5, backgroundColor: '#F57C00',
-    width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1.5, borderColor: COLORS.white,
+    position: 'absolute', top: -6, right: -6, backgroundColor: '#D32F2F',
+    minWidth: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, borderColor: COLORS.white, paddingHorizontal: 2
   },
   cartBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold' },
-  contentContainer: { paddingHorizontal: 20, paddingBottom: 110, paddingTop: 10 },
   
-  searchContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 20 },
+  contentContainer: { paddingHorizontal: 20, paddingBottom: 100, paddingTop: 15 },
+  
+  // Buscador
+  searchContainer: { marginBottom: 20 },
   searchInputWrapper: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
-    borderRadius: 12, height: 50,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white,
+    borderRadius: 15, height: 50, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2,
   },
   searchIcon: { paddingLeft: 15 },
-  searchInput: { flex: 1, height: 50, paddingLeft: 10, fontSize: FONT_SIZES.medium, color: COLORS.text },
+  searchInput: { flex: 1, height: 50, paddingLeft: 10, fontSize: 16, color: COLORS.text },
   
-  categoryContainer: { flexDirection: 'row', marginTop: 25, justifyContent: 'space-between' },
-  categoryButton: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary + '20', 
-    paddingVertical: 12, paddingHorizontal: 25, borderRadius: 12,
-  },
-  categoryButtonText: { fontSize: FONT_SIZES.medium, fontWeight: '600', color: COLORS.primary, marginLeft: 10 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 15, marginLeft: 5 },
+  listPadding: { paddingRight: 20 },
   
-  sectionTitle: { fontSize: FONT_SIZES.xlarge, fontWeight: 'bold', color: COLORS.text, marginTop: 30, marginBottom: 15 },
-  listPadding: { paddingBottom: 5 },
-  
-  // Tarjetas
+  // Tarjetas de Promoción (Horizontal)
   promoCard: {
-    backgroundColor: COLORS.white, borderRadius: 20, width: 220, marginRight: 15, padding: 12,
-    elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4,
+    width: 260, height: 160, marginRight: 15, borderRadius: 20, overflow: 'hidden',
+    backgroundColor: COLORS.white, elevation: 3, marginBottom: 10
   },
-  promoImage: { width: '100%', height: 120, borderRadius: 15, marginBottom: 10 },
-  promoTitle: { fontSize: FONT_SIZES.large, fontWeight: 'bold', color: COLORS.text },
-  promoSubtitle: { fontSize: FONT_SIZES.small, color: COLORS.textSecondary, marginBottom: 5 },
-  priceContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
-  promoPrice: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.text, marginRight: 10 },
-  promoPriceOld: { fontSize: FONT_SIZES.small, color: COLORS.textSecondary, textDecorationLine: 'line-through' },
-  
-  platilloCard: {
-    flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 20, width: 260, marginRight: 15, padding: 12,
-    elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, alignItems: 'center',
+  promoImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  promoOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
   },
-  platilloImage: { width: 65, height: 65, borderRadius: 12, marginRight: 15 },
-  platilloTextContainer: { flex: 1, justifyContent: 'center' },
-  platilloTitle: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.text },
-  platilloSubtitle: { fontSize: FONT_SIZES.small, color: COLORS.textSecondary },
-  platilloPrice: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.text, marginTop: 5 },
+  promoTitle: { color: 'white', fontWeight: 'bold', fontSize: 16, flex: 1, marginRight: 10 },
+  priceTagContainer: { backgroundColor: COLORS.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  promoPrice: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+
+  // Tarjetas de Menú (Diseño Figma: Imagen Izq, Datos Der)
+  menuCard: {
+    flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 18, marginBottom: 15,
+    padding: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
+  },
+  menuImage: { width: 90, height: 90, borderRadius: 15, backgroundColor: '#EEE' },
+  menuInfo: { flex: 1, marginLeft: 15, justifyContent: 'center' },
+  menuTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, flex: 1, marginRight: 5 },
+  menuSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4, fontWeight: '600' },
+  menuPrice: { fontSize: 16, fontWeight: 'bold', color: COLORS.primary },
+  menuDescription: { fontSize: 12, color: '#888', lineHeight: 16 },
+
+  emptySearchText: { textAlign: 'center', marginTop: 30, color: '#999', fontSize: 16 }
 });
 
 export default HomeScreen;
