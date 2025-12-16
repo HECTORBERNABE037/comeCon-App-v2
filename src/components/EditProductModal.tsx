@@ -53,21 +53,15 @@ export const EditProductModal: React.FC<Props> = ({ visible, product, onClose, o
 
   const handleSave = () => {
     if (validate() && product) {
-      // 1. Clonamos el producto base y sobreescribimos con el formulario
       const updatedProduct: any = { 
         ...product, 
         ...formData,
         visible: isVisible 
       };
 
-      // 2. LÓGICA DE PROTECCIÓN DE IMAGEN:
       if (newImageUri) {
-        // Si el usuario tomó una foto nueva, la incluimos para actualizar
         updatedProduct.image = newImageUri;
       } else {
-        // Si NO hay foto nueva, BORRAMOS la propiedad 'image' del objeto.
-        // Esto evita enviar el objeto visual {uri:...} a la base de datos.
-        // Al llegar 'undefined' al servicio, SQLite ignorará la columna y mantendrá la original.
         delete updatedProduct.image;
       }
 
@@ -85,7 +79,6 @@ export const EditProductModal: React.FC<Props> = ({ visible, product, onClose, o
     showImageOptions(setNewImageUri);
   };
 
-  // Visualización: Si hay nueva imagen, úsala. Si no, usa la original del producto.
   const displayImage = newImageUri ? { uri: newImageUri } : product?.image;
 
   if (!product) return null;

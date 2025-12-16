@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 
 export const pickImage = async (useCamera: boolean = false): Promise<string | null> => {
   try {
-    // 1. Solicitar permisos
+    // Solicitar permisos
     if (useCamera) {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
@@ -18,13 +18,13 @@ export const pickImage = async (useCamera: boolean = false): Promise<string | nu
       }
     }
 
-    // 2. Abrir Cámara o Galería
+    // Abrir Cámara o Galería
     let result;
     if (useCamera) {
       result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1], // Cuadrado por defecto (ideal para productos/perfil)
+        aspect: [1, 1], 
         quality: 0.5,
       });
     } else {
@@ -47,7 +47,6 @@ export const pickImage = async (useCamera: boolean = false): Promise<string | nu
   }
 };
 
-// Helper para mostrar el menú de elección (Cámara vs Galería)
 export const showImageOptions = (onImageSelected: (uri: string) => void) => {
   Alert.alert(
     "Seleccionar Imagen",

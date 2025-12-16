@@ -1,6 +1,4 @@
-// ==========================================
-// 1. CONSTANTES Y CONFIGURACIÓN (THEME)
-// ==========================================
+// 1. CONSTANTES Y CONFIGURACIÓN 
 
 export const COLORS = {
   primary: '#FAA66A',          // Naranja principal 
@@ -22,21 +20,16 @@ export const FONT_SIZES = {
   xxlarge: 32, 
 };
 
-// ==========================================
 // 2. TIPOS BASE Y UTILIDADES
-// ==========================================
 
 export type ID = number | string;
 export type UserRole = "cliente" | "administrador";
 
-// Interfaz base para reducir repetición de 'id'
 export interface BaseEntity {
   id: ID;
 }
 
-// ==========================================
 // 3. ENTIDADES DE USUARIO Y PERFILES
-// ==========================================
 
 export interface Usuario extends BaseEntity {
   nombre: string;
@@ -67,14 +60,11 @@ interface ProfileBase {
 export interface AdminProfile extends ProfileBase {}
 export interface ClientProfile extends ProfileBase {}
 
-// Formularios de Perfil (Omitimos la imagen porque no se edita igual que el texto)
 export interface AdminProfileFormData extends Omit<AdminProfile, 'image'> {}
 export interface ClientProfileFormData extends Omit<ClientProfile, 'image'> {}
 
 
-// ==========================================
 // 4. AUTENTICACIÓN (FORMULARIOS)
-// ==========================================
 
 export interface LoginFormData {
   email: string; 
@@ -103,11 +93,11 @@ export interface SetNewPasswordFormData {
 }
 
 
-// ==========================================
-// 5. CATÁLOGO Y PEDIDOS
-// ==========================================
 
-// Base para cualquier ítem vendible
+// 5. CATÁLOGO Y PEDIDOS
+
+
+// Base para cualquier producto 
 interface ProductBase extends BaseEntity {
   title: string;
   subtitle: string;
@@ -129,7 +119,7 @@ export interface Promocion extends ProductBase {
 
 export interface CartItem extends Platillo {
   quantity: number;
-  date?: string; // Fecha de agregado (opcional)
+  date?: string;
 }
 
 export interface Order extends ProductBase {
@@ -162,9 +152,7 @@ export interface OrderFormData {
 }
 
 
-// ==========================================
 // 6. PAGOS
-// ==========================================
 
 export type PaymentMethod = 'cash' | 'card';
 
@@ -184,11 +172,8 @@ export interface CardFormData {
   holderName: string;
 }
 
-// ==========================================
 // 7. NAVEGACIÓN
-// ==========================================
 
-// 7.1 Rutas de las Pestañas de Administrador
 export type AdminTabParamList = {
   HomeAdminTab: undefined;
   OrderTrackingTab: undefined;
@@ -196,7 +181,6 @@ export type AdminTabParamList = {
   SettingsTab: undefined;
 };
 
-// 7.2 Rutas de las Pestañas de Cliente
 export type ClientTabParamList = {
   HomeClientTab: undefined;
   ClientOrderTrackingTab: undefined;
@@ -204,7 +188,6 @@ export type ClientTabParamList = {
   SettingsTab: undefined;
 };
 
-// 7.3 Stack Principal (Auth + Contenedores de Pestañas + Pantallas sin pestañas)
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -212,11 +195,9 @@ export type RootStackParamList = {
   ResetCode: { emailOrPhone: string };
   SetNewPassword: { emailOrPhone: string };
   
-  // Contenedores de Pestañas (Estas son las nuevas rutas principales)
   AdminTabsNavigator: undefined;
   ClientTabsNavigator: undefined;
 
-  // Pantallas que NO deben tener barra inferior (se abren sobre todo)
   ProductDetails: { platillo: Platillo };
   Cart: undefined;
   Checkout: undefined;

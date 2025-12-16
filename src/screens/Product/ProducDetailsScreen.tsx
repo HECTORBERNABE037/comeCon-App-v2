@@ -12,7 +12,7 @@ type Props = StackScreenProps<RootStackParamList, 'ProductDetails'>;
 
 export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { platillo } = route.params;
-  const { user } = useAuth(); // Necesitamos el usuario para saber de quién es el carrito
+  const { user } = useAuth(); 
 
   const activePrice = platillo.promotionalPrice || platillo.price;
   const hasPromo = !!platillo.promotionalPrice;

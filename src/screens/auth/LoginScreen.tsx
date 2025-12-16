@@ -45,7 +45,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       const success = await signIn(formData.email.trim(), formData.password);
 
       if (success) {
-        // Consultamos el rol directamente para navegación rápida
         const user = await DatabaseService.loginUser(formData.email.trim(), formData.password);
         setIsLoading(false);
 

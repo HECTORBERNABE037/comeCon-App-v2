@@ -7,32 +7,29 @@ export const useForm = <T extends Object>(
   validationRules: (formData: T) => Partial<Record<keyof T, string>>
 ) => {
   
-  // 1. El estado del formulario vive aquí
+  // estado de formulario 
   const [formData, setFormData] = useState<T>(initialState);
   
-  // 2. El estado de los errores vive aquí
+  // estado de errores 
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
 
-  // 3. La lógica para actualizar el formulario vive aquí
+  // logica para actualizar 
   const updateFormData = (field: keyof T, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Limpia el error del campo específico al empezar a escribir
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
-  // 4. La lógica de validación vive aquí
+  //La logica  validación 
   const validate = (): boolean => {
-    // Llama a la función de reglas que nos pasaron
     const tempErrors = validationRules(formData);
     setErrors(tempErrors);
     
-    // Si el objeto de errores está vacío, el formulario es válido
     return Object.keys(tempErrors).length === 0;
   };
 
-  // 5. Devolvemos todo lo que las pantallas necesitan
+  // Devolvemos a la pantallas
   return {
     formData,
     errors,

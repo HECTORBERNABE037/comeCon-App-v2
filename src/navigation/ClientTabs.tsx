@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ClientTabParamList, COLORS } from '../../types';
 import { ClientBottomNavBar } from '../components/ClientBottomNavBar';
 
-//Importar las pantallas que irán en las pestañas
 import HomeScreen from '../screens/home/HomeScreen';
 import { ClientOrderTrackingScreen } from '../screens/client/ClientOrderTrackingScreen';
 import { ClientProfileScreen } from '../screens/client/ClientProfileScreen';

@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AdminTabParamList, COLORS } from '../../types';
 import { AdminBottomNavBar } from '../components/AdminBottomNavBar';
 
-// Importar las pantallas que irán en las pestañas
 import HomeAdminScreen from '../screens/home/HomeAdminScreen';
 import { OrderTrackingScreen } from '../screens/admin/OrderTrackingScreen';
 import { AdminProfileScreen } from '../screens/admin/AdminProfileScreen';
@@ -14,11 +13,10 @@ const Tab = createBottomTabNavigator<AdminTabParamList>();
 export const AdminTabs = () => {
   return (
     <Tab.Navigator
-      // Aquí le decimos que use NUESTRA barra personalizada
       tabBar={props => <AdminBottomNavBar {...props} />}
       screenOptions={{
-        headerShown: false, // Ocultamos el header por defecto
-        tabBarStyle: { backgroundColor: COLORS.background } // Fondo base
+        headerShown: false, 
+        tabBarStyle: { backgroundColor: COLORS.background } 
       }}
       initialRouteName="HomeAdminTab"
     >

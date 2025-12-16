@@ -16,13 +16,11 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Feather } from '@expo/vector-icons';
 
-// Importamos AdminTabParamList también
 import { COLORS, FONT_SIZES, RootStackParamList, AdminTabParamList } from '../../../types';
 import { useAuth } from '../../context/AuthContext';
 import { showImageOptions } from '../../utils/ImagePickerHelper'; 
 import DatabaseService from '../../services/DatabaseService';
 
-// DEFINICIÓN DE TIPO CORREGIDA (Combinación de Tabs + Stack)
 type AdminProfileNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList, 'AdminProfileTab'>,
   StackNavigationProp<RootStackParamList>
@@ -32,11 +30,9 @@ export const AdminProfileScreen = () => {
   const navigation = useNavigation<AdminProfileNavigationProp>();
   const { user, refreshUser } = useAuth();
 
-  // Recargamos datos al entrar a la pantalla
   useFocusEffect(React.useCallback(() => { refreshUser(); }, []));
 
   const handleEditProfile = () => {
-    // Esto funciona porque 'EditAdminProfile' sí está en RootStackParamList
     navigation.navigate('EditAdminProfile');
   };
 
@@ -75,7 +71,7 @@ export const AdminProfileScreen = () => {
         
         <View style={styles.profileImageContainer}>
           <Image source={userImage} style={styles.profileImage} />
-          {/* Botón de Cámara sobre la imagen */}
+          {/* Botón de Cámara */}
           <TouchableOpacity style={styles.editIconContainer} onPress={handleChangePhoto}>
              <Feather name="camera" size={16} color={COLORS.text} />
           </TouchableOpacity>
@@ -99,17 +95,12 @@ export const AdminProfileScreen = () => {
           <View style={styles.separator} />
         </View>
         
-        {/* Botón Editar */}
         <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
           <Text style={styles.editButtonText}>EDITAR PERFIL</Text>
         </TouchableOpacity>
 
       </View>
-
-      {/* IMPORTANTE: Eliminamos <AdminBottomNavBar /> de aquí.
-         Ahora el TabNavigator (AdminTabs.tsx) se encarga de mostrarla.
-      */}
-      
+ 
     </SafeAreaView>
   );
 };

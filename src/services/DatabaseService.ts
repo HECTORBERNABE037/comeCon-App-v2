@@ -22,7 +22,7 @@ class DatabaseService {
   private async createTables(): Promise<void> {
     if (!this.db) return;
     try {
-      // 1. Usuarios (ACTUALIZADO CON MÁS CAMPOS)
+      // 1. Usuarios 
       await this.db.execAsync(`
         CREATE TABLE IF NOT EXISTS users (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,13 +129,11 @@ class DatabaseService {
     if (!userCheck) {
       console.log('🌱 Sembrando datos iniciales...');
       
-      // Insertamos Admin con datos completos
       await this.db.runAsync(
         'INSERT INTO users (email, password, name, nickname, role, phone, gender, country, address, allowNotifications, allowCamera) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
         ['admin1@comecon.com', '12345678a', 'Samantha Rios Bosques', 'Sam', 'administrador', '3512040011', 'Femenino', 'Mexico', 'Av. Virrey de Almanza #500', 1, 1]
       );
         
-      // Insertamos Cliente
       await this.db.runAsync(
         'INSERT INTO users (email, password, name, nickname, role, phone, gender, country, address, allowNotifications, allowCamera) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
         ['cliente1@comecon.com', '12345678a', 'Juan Pérez', 'Juancho', 'cliente', '3512345678', 'Masculino', 'Mexico', 'Calle Falsa 123', 1, 1]
@@ -150,7 +148,6 @@ class DatabaseService {
       for (const p of products) {
         await this.db.runAsync('INSERT INTO products (title, subtitle, price, description, image, visible) VALUES (?, ?, ?, ?, ?, ?)', p);
       }
-      // --- ORDENES DE PRUEBA ---
         // Orden 1: En proceso
         await this.db.runAsync('INSERT INTO orders (userId, total, status, date, deliveryTime, historyNotes) VALUES (?, ?, ?, ?, ?, ?)', 
           [2, 120.99, 'En proceso', '2025-10-27', '7:30pm', 'Preparando ingredientes']); // <--- CAMBIO
@@ -169,8 +166,7 @@ class DatabaseService {
   }
 
   // --- USUARIOS ---
-
-  // Agregar método para actualizar configuraciones
+  // método actualizar configuraciones
   async updateUserSettings(email: string, settings: { allowNotifications: boolean, allowCamera: boolean }): Promise<boolean> {
     if (!this.db) return false;
     try {
@@ -187,7 +183,7 @@ class DatabaseService {
     return await this.db.getFirstAsync('SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
   }
 
-  // Obtener usuario por Email (Para cargar el perfil)
+  // Obtener usuario por Email 
   async getUserByEmail(email: string): Promise<any> {
     if (!this.db) return null;
     return await this.db.getFirstAsync('SELECT * FROM users WHERE email = ?', [email]);
@@ -348,11 +344,9 @@ class DatabaseService {
 
   // --- ÓRDENES ---
 
-  // Obtener todas las órdenes uniendo con productos para tener la imagen y título principal
   async getOrders(): Promise<any[]> {
     if (!this.db) return [];
     try {
-      // Hacemos JOIN para obtener los datos del producto asociado a la orden (asumimos 1 producto principal por visualización)
       const query = `
         SELECT 
           o.id, o.status, o.total, o.date, o.deliveryTime, o.historyNotes,
@@ -365,13 +359,12 @@ class DatabaseService {
       `;
       const orders = await this.db.getAllAsync(query);
       
-      // Formateamos para cumplir con la interfaz de UI
       return orders.map((o: any) => ({
         id: o.id.toString(),
         title: o.title,
         subtitle: o.subtitle,
         price: o.total.toString(),
-        image: o.image || 'logoApp', // Manejo de imagen
+        image: o.image || 'logoApp', 
         status: o.status,
         date: o.date,
         deliveryTime: o.deliveryTime,
@@ -383,7 +376,6 @@ class DatabaseService {
     }
   }
 
-  // Actualizar el estado de una orden (ej. de 'process' a 'completed')
   async updateOrderStatus(orderId: number, status: string, notes?: string, time?: string): Promise<void> {
     if (!this.db) return;
     try {
@@ -409,7 +401,7 @@ class DatabaseService {
       throw error;
     }
   }
-  // Obtener órdenes de un usuario específico (Para el Cliente)
+  // Obtener órdenes de un usuario específico 
   async getOrdersByUserId(userId: number): Promise<any[]> {
     if (!this.db) return [];
     try {
@@ -442,7 +434,7 @@ class DatabaseService {
       return [];
     }
   }
-  // --- CARRITO (NUEVOS MÉTODOS) ---
+  // --- CARRITO---
 
   async addToCart(userId: number, productId: number, quantity: number): Promise<void> {
     if (!this.db) return;
@@ -473,7 +465,6 @@ class DatabaseService {
   async getCartItems(userId: number): Promise<any[]> {
     if (!this.db) return [];
     try {
-      // JOIN para traer datos del producto y su precio (incluso promocional)
       const query = `
         SELECT 
           c.id as cartId, c.quantity,
@@ -486,18 +477,16 @@ class DatabaseService {
       `;
       const items = await this.db.getAllAsync(query, [userId]);
       
-      // Formateamos para que la UI lo entienda como CartItem
       return items.map((item: any) => {
-        // Determinamos precio final
         const finalPrice = item.promotionalPrice != null ? item.promotionalPrice : item.price;
         return {
-          id: item.cartId.toString(), // ID de la fila del carrito, no del producto
+          id: item.cartId.toString(), 
           title: item.title,
           subtitle: item.subtitle,
           price: finalPrice.toString(),
           image: item.image || 'logoApp',
           quantity: item.quantity,
-          productId: item.productId // Guardamos ref al producto real
+          productId: item.productId 
         };
       });
     } catch (error) {
@@ -531,8 +520,8 @@ class DatabaseService {
       if (cartItems.length === 0) return false;
 
       // 2. Crear la Orden
-      const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const status = 'Pendiente'; // Estado inicial en español
+      const date = new Date().toISOString().split('T')[0]; 
+      const status = 'Pendiente'; // Estado inicial
       
       const result = await this.db.runAsync(
         'INSERT INTO orders (userId, total, status, date, deliveryTime, historyNotes) VALUES (?, ?, ?, ?, ?, ?)',
@@ -560,7 +549,7 @@ class DatabaseService {
       return false;
     }
   }
-  // --- TARJETAS (NUEVOS MÉTODOS) ---
+  // --- TARJETAS  ---
 
   // Obtener tarjetas del usuario
   async getCards(userId: number): Promise<any[]> {
@@ -573,11 +562,11 @@ class DatabaseService {
     }
   }
 
-  // Guardar nueva tarjeta (con límite de 3)
+  // Guardar nueva tarjeta límite de 3
   async addCard(userId: number, cardData: CardFormData): Promise<{ success: boolean; error?: string }> {
     if (!this.db) return { success: false, error: "DB no inicializada" };
     try {
-      // 1. Verificar cantidad actual
+      // Verificar cantidad actual
       const result = await this.db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM cards WHERE userId = ?', [userId]);
       const count = result?.count || 0;
 
@@ -585,9 +574,9 @@ class DatabaseService {
         return { success: false, error: "Límite alcanzado: Máximo 3 tarjetas." };
       }
 
-      // 2. Insertar (Guardamos solo últimos 4 dígitos por privacidad en esta demo)
+      // Insertar 
       const lastFour = cardData.number.slice(-4);
-      const type = cardData.number.startsWith('4') ? 'Visa' : 'MasterCard'; // Lógica simple de detección
+      const type = cardData.number.startsWith('4') ? 'Visa' : 'MasterCard'; 
 
       await this.db.runAsync(
         'INSERT INTO cards (userId, lastFour, holderName, expiryDate, type) VALUES (?, ?, ?, ?, ?)',
@@ -601,7 +590,6 @@ class DatabaseService {
     }
   }
 
-  // Eliminar tarjeta
   async deleteCard(cardId: number): Promise<void> {
     if (!this.db) return;
     await this.db.runAsync('DELETE FROM cards WHERE id = ?', [cardId]);

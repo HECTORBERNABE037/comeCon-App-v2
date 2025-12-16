@@ -23,8 +23,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const dbUser = await DatabaseService.loginUser(email, password);
       
       if (dbUser) {
-        // CORRECCIÓN: Mapeamos los nuevos campos de configuración
-        // SQLite guarda booleans como 0 o 1, así que convertimos explícitamente
         const mappedUser: Usuario = {
           id: dbUser.id,
           nombre: dbUser.name,
@@ -36,7 +34,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           country: dbUser.country,
           address: dbUser.address,
           image: dbUser.image,
-          // Mapeo de permisos (1 = true, 0 = false)
           allowNotifications: dbUser.allowNotifications === 1,
           allowCamera: dbUser.allowCamera === 1
         };
@@ -61,7 +58,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const dbUser = await DatabaseService.getUserByEmail(user.email);
       if (dbUser) {
-        // CORRECCIÓN: Actualizamos también los permisos al refrescar
         setUser({
           ...user,
           nombre: dbUser.name,

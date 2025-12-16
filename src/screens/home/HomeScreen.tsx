@@ -20,9 +20,8 @@ import { MaterialIcons, FontAwesome5, Feather, Ionicons } from "@expo/vector-ico
 import { RootStackParamList, ClientTabParamList, COLORS, FONT_SIZES, Platillo } from "../../../types";
 import DatabaseService from '../../services/DatabaseService';
 import { useAuth } from "../../context/AuthContext";
-import { advancedSearch } from "../../utils/searchHelper"; // Importamos el buscador avanzado
+import { advancedSearch } from "../../utils/searchHelper"; 
 
-// Tipos de Navegación
 type HomeScreenNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<ClientTabParamList, 'HomeClientTab'>,
   StackNavigationProp<RootStackParamList>
@@ -46,14 +45,14 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
   const [promotions, setPromotions] = useState<Platillo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartCount, setCartCount] = useState(0); // Estado para el badge del carrito
+  const [cartCount, setCartCount] = useState(0); 
 
   const handleCart = () => navigation.navigate('Cart');
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Cargar Productos
+      //  Cargar Productos
       const productsFromDB = await DatabaseService.getProducts();
       
       const formattedProducts: Platillo[] = productsFromDB
@@ -72,10 +71,9 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
       setAllProducts(formattedProducts);
       setPromotions(formattedProducts.filter(p => p.promotionalPrice));
 
-      // 2. Cargar Contador del Carrito (Reactivo)
+      // Cargar Contador del Carrito 
       if (user) {
         const cartItems = await DatabaseService.getCartItems(Number(user.id));
-        // Sumamos la cantidad de cada item (ej: 2 cafés + 1 pan = 3)
         const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
         setCartCount(totalItems);
       }
@@ -90,13 +88,11 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [user]) // Se ejecuta al enfocar y si cambia el usuario
+    }, [user]) 
   );
 
-  // Filtrado Avanzado
   const filteredProducts = advancedSearch(allProducts, searchQuery, ['title', 'subtitle', 'description']);
 
-  // Tarjeta Horizontal (Promociones)
   const renderPromoCard = ({ item }: { item: Platillo }) => (
     <TouchableOpacity style={styles.promoCard} onPress={() => navigation.navigate('ProductDetails', { platillo: item })}>
       <Image source={item.image} style={styles.promoImage} />
@@ -109,17 +105,14 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
     </TouchableOpacity>
   );
 
-  // Tarjeta Vertical Detallada (Menú General - Estilo Figma)
   const renderPlatilloCard = ({ item }: { item: Platillo }) => {
     const finalPrice = item.promotionalPrice || item.price;
     const isPromo = !!item.promotionalPrice;
 
     return (
       <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('ProductDetails', { platillo: item })}>
-        {/* Columna Izquierda: Imagen */}
         <Image source={item.image} style={styles.menuImage} />
         
-        {/* Columna Derecha: Info */}
         <View style={styles.menuInfo}>
           <View style={{flexDirection:'row', justifyContent:'space-between'}}>
              <Text style={styles.menuTitle} numberOfLines={1}>{item.title}</Text>
@@ -128,7 +121,6 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
           
           <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
           
-          {/* Descripción (máximo 2 líneas) */}
           <Text style={styles.menuDescription} numberOfLines={2}>
             {item.description || "Delicioso platillo preparado con ingredientes frescos."}
           </Text>
@@ -177,7 +169,7 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
             </View>
           </View>
 
-          {/* PROMOCIONES (Carrusel Horizontal) */}
+          {/* PROMOCIONES */}
           {promotions.length > 0 && !searchQuery && (
             <View style={{marginBottom: 20}}>
               <Text style={styles.sectionTitle}>Promociones</Text>
@@ -192,7 +184,6 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
             </View>
           )}
 
-          {/* MENÚ COMPLETO (Lista Vertical) */}
           <Text style={styles.sectionTitle}>Nuestro Menú</Text>
           <View>
             {filteredProducts.map((item) => (
@@ -212,7 +203,7 @@ const HomeScreen: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ naviga
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' }, // Fondo un poco más limpio
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
   headerCard: {
     backgroundColor: COLORS.white,
     paddingTop: Platform.OS === 'android' ? 40 : 20,
@@ -235,7 +226,6 @@ const styles = StyleSheet.create({
   
   contentContainer: { paddingHorizontal: 20, paddingBottom: 100, paddingTop: 15 },
   
-  // Buscador
   searchContainer: { marginBottom: 20 },
   searchInputWrapper: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white,
@@ -247,7 +237,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 15, marginLeft: 5 },
   listPadding: { paddingRight: 20 },
   
-  // Tarjetas de Promoción (Horizontal)
   promoCard: {
     width: 260, height: 160, marginRight: 15, borderRadius: 20, overflow: 'hidden',
     backgroundColor: COLORS.white, elevation: 3, marginBottom: 10
@@ -261,7 +250,6 @@ const styles = StyleSheet.create({
   priceTagContainer: { backgroundColor: COLORS.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   promoPrice: { color: 'white', fontWeight: 'bold', fontSize: 14 },
 
-  // Tarjetas de Menú (Diseño Figma: Imagen Izq, Datos Der)
   menuCard: {
     flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 18, marginBottom: 15,
     padding: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,

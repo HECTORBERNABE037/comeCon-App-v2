@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView // <--- Importante
+  KeyboardAvoidingView 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -26,7 +26,6 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, refreshUser } = useAuth(); 
   const [loading, setLoading] = useState(false);
 
-  // Inicializar estado con estructura vacía
   const [formData, setFormData] = useState<ClientProfileFormData>({
     fullName: '',
     nickname: '',
@@ -37,7 +36,6 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
     address: ''
   });
 
-  // Pre-llenar datos del usuario real
   useEffect(() => {
     if (user) {
       setFormData({
@@ -66,11 +64,10 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Reutilizamos updateUserProfile (funciona igual para admin y cliente)
       const success = await DatabaseService.updateUserProfile(user.email, formData);
       
       if (success) {
-        await refreshUser(); // Refrescar contexto para ver cambios en perfil
+        await refreshUser(); 
         Alert.alert("Éxito", "Información actualizada correctamente", [
           { text: "OK", onPress: () => navigation.goBack() }
         ]);
@@ -99,7 +96,6 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ width: 28 }} /> 
       </View>
 
-      {/* SOLUCIÓN TECLADO: KeyboardAvoidingView envuelve el ScrollView */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -211,7 +207,7 @@ const styles = StyleSheet.create({
   },
   headerUnderline: {
     height: 3,
-    backgroundColor: '#F57C00', // Naranja
+    backgroundColor: '#F57C00', 
     width: '100%',
     marginTop: 2,
   },
@@ -256,7 +252,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   updateButton: {
-    backgroundColor: COLORS.primary, // Naranja
+    backgroundColor: COLORS.primary, 
     height: 55,
     borderRadius: 12,
     justifyContent: 'center',

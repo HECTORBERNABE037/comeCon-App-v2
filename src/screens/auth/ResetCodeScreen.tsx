@@ -25,7 +25,6 @@ export const ResetCodeScreen: React.FC<ResetCodeScreenProps> = ({ navigation, ro
   
   const { emailOrPhone } = route.params;
 
-  // Inicializamos el formulario con un solo campo 'code'
   const { formData, errors, updateFormData, validate } = useForm<ResetCodeFormData>(
     { code: "" },
     validateResetCode
@@ -60,14 +59,12 @@ export const ResetCodeScreen: React.FC<ResetCodeScreenProps> = ({ navigation, ro
     >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
-      {/* Botón atrás discreto si se necesita, aunque el diseño es limpio */}
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={28} color={COLORS.textSecondary} />
       </TouchableOpacity>
 
       <View style={styles.content}>
         
-        {/* Contenedor del Logo (Estilo tarjeta suave como en la imagen) */}
         <View style={styles.logoCard}>
           <Image source={loginImage} style={styles.logoImage} />
         </View>
@@ -76,7 +73,6 @@ export const ResetCodeScreen: React.FC<ResetCodeScreenProps> = ({ navigation, ro
         <Text style={styles.screenTitle}>Recuperar Contraseña</Text>
 
         <View style={styles.formContainer}>
-          {/* Input Único tipo "Caja Gris" */}
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.singleInput}
@@ -87,7 +83,7 @@ export const ResetCodeScreen: React.FC<ResetCodeScreenProps> = ({ navigation, ro
               keyboardType="number-pad"
               maxLength={4}
               editable={!isLoading}
-              textAlign="center" // Texto centrado se ve mejor para códigos
+              textAlign="center" 
             />
           </View>
           {errors.code && <Text style={styles.errorText}>{errors.code}</Text>}
@@ -111,14 +107,14 @@ export const ResetCodeScreen: React.FC<ResetCodeScreenProps> = ({ navigation, ro
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#F2F2F2', // Fondo gris muy claro como en la imagen
+    backgroundColor: '#F2F2F2', 
   },
   content: { 
     flex: 1, 
     justifyContent: "center", 
     alignItems: "center", 
     paddingHorizontal: 30,
-    marginTop: -40 // Ajuste visual para subir un poco el contenido
+    marginTop: -40 
   },
   backButton: {
     position: 'absolute',
@@ -129,8 +125,8 @@ const styles = StyleSheet.create({
   logoCard: {
     width: 140,
     height: 140,
-    borderRadius: 35, // Bordes muy redondeados (squircle)
-    backgroundColor: '#E0E0E0', // Gris un poco más oscuro para el fondo del logo
+    borderRadius: 35,
+    backgroundColor: '#E0E0E0', 
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -148,13 +144,13 @@ const styles = StyleSheet.create({
   appTitle: { 
     fontSize: FONT_SIZES.xlarge, 
     fontWeight: "bold", 
-    color: COLORS.primary, // Naranja
+    color: COLORS.primary, 
     textAlign: "center", 
     marginBottom: 5 
   },
   screenTitle: { 
     fontSize: FONT_SIZES.medium, 
-    color: '#A0A0A0', // Gris claro texto
+    color: '#A0A0A0', 
     textAlign: "center", 
     marginBottom: 40 
   },
@@ -164,10 +160,10 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     width: '100%',
-    backgroundColor: COLORS.surface, // Gris del input
-    borderRadius: 8, // Bordes poco redondeados como en la imagen
+    backgroundColor: COLORS.surface, 
+    borderRadius: 8, 
     marginBottom: 20,
-    borderBottomWidth: 1, // Linea inferior sutil
+    borderBottomWidth: 1,
     borderBottomColor: '#D0D0D0',
     elevation: 1,
   },
@@ -178,10 +174,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   actionButton: { 
-    backgroundColor: COLORS.primary, // Naranja
+    backgroundColor: COLORS.primary, 
     width: '100%',
     height: 50, 
-    borderRadius: 8, // Coincide con el input
+    borderRadius: 8, 
     justifyContent: "center", 
     alignItems: "center", 
     elevation: 2,

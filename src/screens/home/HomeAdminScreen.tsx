@@ -17,17 +17,14 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
-// Importamos los tipos de ambas listas de navegación
 import { RootStackParamList, AdminTabParamList, COLORS, FONT_SIZES, Platillo, ProductFormData } from "../../../types";
 
 import { EditProductModal } from "../../components/EditProductModal";
 import { PromoteProductModal } from "../../components/PromoteProductModal";
 import { AddProductModal } from "../../components/AddProductModal"; 
-// Ya no importamos AdminBottomNavBar aquí porque el TabNavigator lo maneja
 import DatabaseService from '../../services/DatabaseService';
 import { advancedSearch } from "../../utils/searchHelper";
 
-// DEFINICIÓN DE TIPO DE NAVEGACIÓN COMPUESTO (Tab + Stack)
 type HomeAdminScreenNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList, 'HomeAdminTab'>,
   StackNavigationProp<RootStackParamList>
@@ -266,8 +263,6 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
           </Text>
         }
       />
-
-      {/* NOTA: Eliminamos <AdminBottomNavBar /> porque ahora está en AdminTabs.tsx */}
 
       <AddProductModal 
         visible={isAddModalVisible}

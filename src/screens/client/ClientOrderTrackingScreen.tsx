@@ -66,19 +66,18 @@ export const ClientOrderTrackingScreen = () => {
     let statusColor = COLORS.primary;
     let statusText = "En proceso";
 
-    // SWITCH EN ESPAÑOL
     switch (item.status) {
       case 'completado': 
         statusText = "Entregado"; 
-        statusColor = '#2E7D32'; // Verde
+        statusColor = '#2E7D32'; 
         break; 
       case 'cancelado': 
         statusText = "Cancelado"; 
-        statusColor = '#D50000'; // Rojo
+        statusColor = '#D50000'; 
         break; 
       case 'En proceso': 
         statusText = "En camino"; 
-        statusColor = '#FF9800'; // Naranja
+        statusColor = '#FF9800'; 
         break;   
       case 'Pendiente':
         statusText = "Recibido";

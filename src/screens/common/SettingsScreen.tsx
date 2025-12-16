@@ -91,7 +91,6 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
-      {/* Header Idéntico a AdminProfileScreen */}
       <View style={styles.headerCard}>
         <Text style={styles.headerTitle}>Configuración</Text>
         <View style={styles.headerUnderline} />
@@ -100,7 +99,6 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
       <View style={styles.content}>
         <Text style={styles.sectionTitle}>Permisos de la Aplicación</Text>
         
-        {/* Switch Notificaciones */}
         <View style={styles.row}>
           <Text style={styles.label}>Permitir Notificaciones</Text>
           <Switch
@@ -114,7 +112,6 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
         <View style={styles.separator} />
 
-        {/* Switch Cámara */}
         <View style={styles.row}>
           <Text style={styles.label}>Permitir Cámara</Text>
           <Switch
@@ -133,7 +130,6 @@ export const SettingsScreen = ({ navigation }: { navigation: any }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F2' },
   
-  // Estilos de Header copiados de AdminProfileScreen
   headerCard: {
     alignItems: 'center',
     marginTop: Platform.OS === 'android' ? 40 : 10,
@@ -146,12 +142,12 @@ const styles = StyleSheet.create({
   },
   headerUnderline: {
     height: 3,
-    width: 250, // Ancho de la línea naranja
+    width: 250, 
     backgroundColor: COLORS.primary,
     marginTop: 5,
   },
 
-  // Contenido
+
   content: { 
     marginTop: 10, 
     padding: 20, 

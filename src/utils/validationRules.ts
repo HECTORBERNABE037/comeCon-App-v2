@@ -82,7 +82,7 @@ export const validateForgotPassword = (formData: ForgotPasswordFormData) => {
   return tempErrors;
 };
 
-// Reglas para el Código de Reseteo
+// Reglas para el C0digo de Reseteo
 export const validateResetCode = (formData: ResetCodeFormData) => {
   let tempErrors: { code?: string } = {}; 
   // Validamos que exista y tenga longitud exacta de 4

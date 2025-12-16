@@ -36,7 +36,7 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleSendCode = async (): Promise<void> => {
-    // 1. Validación de formato (Frontend)
+    // Validación de formato
     if (!validate()) {
       return;
     }
@@ -44,13 +44,12 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // 2. Verificar existencia en SQLite (Backend Local)
+      // Verificar existencia en SQLite 
       const userExists = await DatabaseService.checkUserExists(formData.emailOrPhone.trim());
 
       setIsLoading(false);
 
       if (userExists) {
-        // 3. Éxito: El usuario existe en la BD local
         console.log(`[Simulación] Código enviado a: ${formData.emailOrPhone}`);
         
         Alert.alert(
@@ -64,7 +63,6 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
           ]
         );
       } else {
-        // 4. Error: No se encontró el usuario en la BD
         Alert.alert(
           "Usuario no encontrado", 
           "No existe ninguna cuenta registrada con este correo o teléfono. Verifica tus datos o regístrate."

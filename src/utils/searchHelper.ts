@@ -1,17 +1,16 @@
 // Función para eliminar acentos y diacríticos
 export const normalizeText = (text: string) => {
   return text
-    .normalize("NFD") // Descompone caracteres (ej: é -> e + ´)
-    .replace(/[\u0300-\u036f]/g, "") // Elimina los diacríticos
+    .normalize("NFD") 
+    .replace(/[\u0300-\u036f]/g, "") 
     .toLowerCase()
     .trim();
 };
 
-// Función genérica de búsqueda
 export const advancedSearch = <T>(
   data: T[], 
   query: string, 
-  keys: (keyof T)[] // Qué propiedades buscar (ej: 'title', 'subtitle')
+  keys: (keyof T)[] 
 ): T[] => {
   if (!query) return data;
 

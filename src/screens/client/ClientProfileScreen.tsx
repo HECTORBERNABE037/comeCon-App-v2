@@ -16,13 +16,11 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Feather } from '@expo/vector-icons';
 
-// Importamos tipos de navegación
 import { COLORS, FONT_SIZES, RootStackParamList, ClientTabParamList } from '../../../types';
 import { useAuth } from '../../context/AuthContext';
 import { showImageOptions } from '../../utils/ImagePickerHelper'; 
 import DatabaseService from '../../services/DatabaseService';
 
-// DEFINICIÓN DE NAVEGACIÓN COMPUESTA (Tab + Stack)
 type ClientProfileNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<ClientTabParamList, 'ClientProfileTab'>,
   StackNavigationProp<RootStackParamList>
@@ -32,7 +30,6 @@ export const ClientProfileScreen = () => {
   const navigation = useNavigation<ClientProfileNavigationProp>();
   const { user, refreshUser } = useAuth();
 
-  // Refrescar datos al entrar a la pantalla (por si se editó algo)
   useFocusEffect(
     React.useCallback(() => {
       refreshUser();
@@ -44,19 +41,19 @@ export const ClientProfileScreen = () => {
   };
 
   const handleChangePhoto = () => {
-    // 1. Validar permiso (leído desde la BD en el contexto)
+    // Validar permiso 
     if (!user?.allowCamera) {
       Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración para cambiar tu foto.");
       return;
     }
     
-    // 2. Abrir selector de imagen
+    // Abrir selector de imagen
     showImageOptions(async (uri) => {
-      // 3. Guardar solo la imagen
+      // Guardar solo la imagen
       const success = await DatabaseService.updateUserImage(user.email, uri);
       
       if (success) {
-        refreshUser(); // Actualizar la UI
+        refreshUser(); 
         Alert.alert("Éxito", "Foto de perfil actualizada.");
       } else {
         Alert.alert("Error", "No se pudo guardar la foto.");
@@ -88,8 +85,6 @@ export const ClientProfileScreen = () => {
              <Feather name="camera" size={16} color={COLORS.text} />
           </TouchableOpacity>
         </View>
-
-        {/* Datos del Usuario (Vienen del Contexto) */}
         
         <View style={styles.infoGroup}>
           <Text style={styles.label}>Nombre</Text>
@@ -109,7 +104,6 @@ export const ClientProfileScreen = () => {
           <View style={styles.separator} />
         </View>
 
-        {/* Dirección (si existe) */}
         {user.address ? (
             <View style={styles.infoGroup}>
             <Text style={styles.label}>Dirección</Text>
@@ -124,7 +118,6 @@ export const ClientProfileScreen = () => {
 
       </View>
       
-      {/* IMPORTANTE: Se eliminó <ClientBottomNavBar /> porque el TabNavigator la agrega automáticamente */}
 
     </SafeAreaView>
   );
@@ -148,7 +141,7 @@ const styles = StyleSheet.create({
   headerUnderline: {
     height: 3,
     width: 250,
-    backgroundColor: COLORS.primary, // Naranja
+    backgroundColor: COLORS.primary, 
     marginTop: 5,
   },
   content: {

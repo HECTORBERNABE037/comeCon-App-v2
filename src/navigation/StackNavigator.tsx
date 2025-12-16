@@ -2,7 +2,7 @@ import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import { COLORS, RootStackParamList } from "../../types";
 
-// Importar Auth y flujos secundarios
+// Auth y flujos secundarios
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import { ForgotPasswordScreen } from "../screens/auth/ForgotPasswordScreen"; 
@@ -15,7 +15,6 @@ import { CartScreen } from "../screens/client/CartScreen";
 import { CheckoutScreen } from "../screens/client/CheckoutScreen";
 import { AddCardScreen } from "../screens/client/AddCardScreen";
 
-// IMPORTAR LOS NUEVOS NAVEGADORES DE PESTAÑAS
 import { AdminTabs } from "./AdminTabs";
 import { ClientTabs } from "./ClientTabs";
 
@@ -29,7 +28,7 @@ const StackNavigator: React.FC = () => {
         headerStyle: { backgroundColor: COLORS.primary },
         headerTintColor: "#ffffff",
         headerTitleStyle: { fontWeight: "bold" },
-        headerShown: false // Por defecto ocultamos headers en el stack
+        headerShown: false 
       }}
     >
       {/* Flujo de Autenticación */}
@@ -39,11 +38,11 @@ const StackNavigator: React.FC = () => {
       <Stack.Screen name='ResetCode' component={ResetCodeScreen} />
       <Stack.Screen name='SetNewPassword' component={SetNewPasswordScreen} />
 
-      {/* PESTAÑAS PRINCIPALES (Aquí sucede la magia) */}
+      {/* PESTAÑAS PRINCIPALES */}
       <Stack.Screen name="AdminTabsNavigator" component={AdminTabs} />
       <Stack.Screen name="ClientTabsNavigator" component={ClientTabs} />
 
-      {/* Pantallas secundarias (se abren sobre las pestañas, sin barra inferior) */}
+      {/* Pantallas secundarias */}
       <Stack.Screen name="ProductDetails" component={ProductDetailScreen} />
       <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />

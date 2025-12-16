@@ -28,7 +28,6 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cargar carrito real
   const loadCart = async () => {
     if (!user) return;
     setLoading(true);
@@ -52,7 +51,7 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleIncrement = async (id: string, currentQty: number) => {
     await DatabaseService.updateCartQuantity(Number(id), currentQty + 1);
-    loadCart(); // Recargar
+    loadCart(); 
   };
 
   const handleDecrement = async (id: string, currentQty: number) => {

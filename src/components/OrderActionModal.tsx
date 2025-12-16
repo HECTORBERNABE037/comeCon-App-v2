@@ -43,7 +43,6 @@ export const OrderActionModal: React.FC<Props> = ({
   useEffect(() => {
     if (order && visible) {
       setFormData({
-        // CORRECCIÓN: Carga el status real, no uno hardcodeado
         status: order.status, 
         estimatedTime: order.deliveryTime || '7:30pm',
         comment: order.historyNotes || ''

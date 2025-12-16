@@ -5,7 +5,6 @@ import { CommonActions } from '@react-navigation/native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { COLORS } from '../../types';
 
-// Ahora recibimos props estándar de BottomTabBar
 export const AdminBottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   
   // Obtenemos el nombre de la ruta activa actual usando el índice
@@ -30,7 +29,6 @@ export const AdminBottomNavBar: React.FC<BottomTabBarProps> = ({ state, descript
     });
 
     if (currentRouteName !== routeName && !event.defaultPrevented) {
-      // Usamos navigate, que en un TabNavigator cambia de pestaña sin apilar
       navigation.navigate(routeName);
     }
   };
@@ -81,7 +79,6 @@ export const AdminBottomNavBar: React.FC<BottomTabBarProps> = ({ state, descript
 };
 
 const styles = StyleSheet.create({
-  // ... (TUS MISMOS ESTILOS DE SIEMPRE)
   container: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, borderTopLeftRadius: 25, borderTopRightRadius: 25, shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 5, elevation: 20, paddingBottom: Platform.OS === 'ios' ? 15 : 0 },
   navItem: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 12 },
   activeItem: { backgroundColor: '#F0F0F0' },

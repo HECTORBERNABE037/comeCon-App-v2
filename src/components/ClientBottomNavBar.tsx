@@ -53,7 +53,6 @@ export const ClientBottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigat
 };
 
 const styles = StyleSheet.create({
-  // ... (TUS MISMOS ESTILOS)
   container: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 90, backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, borderTopLeftRadius: 30, borderTopRightRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 20, paddingBottom: Platform.OS === 'ios' ? 20 : 0 },
   navItem: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 15 },
   activeItem: { backgroundColor: '#F0F0F0' },

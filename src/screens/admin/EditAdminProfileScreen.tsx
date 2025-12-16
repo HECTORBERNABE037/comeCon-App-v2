@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView // <--- Importado
+  KeyboardAvoidingView 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -90,7 +90,6 @@ export const EditAdminProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ width: 28 }} /> 
       </View>
 
-      {/* SOLUCIÓN TECLADO */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}

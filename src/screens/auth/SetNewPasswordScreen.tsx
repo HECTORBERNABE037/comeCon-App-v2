@@ -17,17 +17,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useForm } from '../../hooks/useForm';
 import { validateSetNewPassword } from '../../utils/validationRules';
 
-// Importamos el servicio de base de datos
 import DatabaseService from '../../services/DatabaseService';
 
 const loginImage = require("../../../assets/logoApp.png");
 
-// Definimos la navegación
+
 type Props = StackScreenProps<RootStackParamList, "SetNewPassword">;
 
 export const SetNewPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
   
-  // Obtenemos el email/teléfono que validamos en los pasos anteriores
   const { emailOrPhone } = route.params;
 
   const { formData, errors, updateFormData, validate } = useForm<SetNewPasswordFormData>(
@@ -38,7 +36,7 @@ export const SetNewPasswordScreen: React.FC<Props> = ({ navigation, route }) => 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleSetPassword = async (): Promise<void> => {
-    // 1. Validar el formulario (coincidencia y formato)
+    // Validar el formulario 
     if (!validate()) {
       return;
     }
@@ -46,13 +44,12 @@ export const SetNewPasswordScreen: React.FC<Props> = ({ navigation, route }) => 
     setIsLoading(true);
 
     try {
-      // 2. Actualizar en SQLite
+      // Actualizar en SQLite
       const success = await DatabaseService.updatePassword(emailOrPhone, formData.newPassword);
       
       setIsLoading(false);
 
       if (success) {
-        // 3. Éxito: Navegar al Login
         Alert.alert(
           "Éxito",
           "Tu contraseña ha sido cambiada correctamente. Por favor, inicia sesión con tu nueva credencial.",
@@ -60,7 +57,6 @@ export const SetNewPasswordScreen: React.FC<Props> = ({ navigation, route }) => 
             { 
               text: "Ir al Login", 
               onPress: () => {
-                // Usamos reset para que el usuario no pueda volver atrás con el botón físico
                 navigation.reset({
                   index: 0,
                   routes: [{ name: 'Login' }],
@@ -70,7 +66,6 @@ export const SetNewPasswordScreen: React.FC<Props> = ({ navigation, route }) => 
           ]
         );
       } else {
-        // 4. Error (poco probable si llegamos hasta aquí, pero posible)
         Alert.alert("Error", "No se pudo actualizar la contraseña. Inténtalo de nuevo.");
       }
 
@@ -152,7 +147,7 @@ export const SetNewPasswordScreen: React.FC<Props> = ({ navigation, route }) => 
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#F2F2F2', // Fondo gris claro consistente
+    backgroundColor: '#F2F2F2',
   },
   content: { 
     flex: 1, 
@@ -205,7 +200,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 30,
     paddingHorizontal: 10,
-    //lineHeight: 20,
   },
   formContainer: { 
     width: "100%", 

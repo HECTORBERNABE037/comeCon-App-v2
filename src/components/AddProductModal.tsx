@@ -37,7 +37,6 @@ export const AddProductModal: React.FC<Props> = ({
     { title: '', subtitle: '', price: '', description: '' },
     validateProductForm
   );
-  // Estado para la imagen (URI o null)
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +48,6 @@ export const AddProductModal: React.FC<Props> = ({
 
   const handleSave = () => {
     if (validate()) {
-      // Pasamos la URI de la imagen si existe
       onSave({ 
         ...formData, 
         image: imageUri || 'logoApp' 
@@ -69,7 +67,6 @@ export const AddProductModal: React.FC<Props> = ({
     });
   };
 
-  // Determinar qué imagen mostrar
   const displayImage = imageUri ? { uri: imageUri } : defaultImage;
 
   return (

@@ -87,12 +87,10 @@ export const OrderTrackingScreen = () => {
     return () => clearTimeout(timer);
   }, [user]); 
 
-  // FILTRADO (LÓGICA EN ESPAÑOL)
   const filteredOrders = allOrders.filter(order => {
     const activeStatuses = ['En proceso', 'Pendiente'];
     const isProcess = activeStatuses.includes(order.status);
     
-    // Si la pestaña es "process", mostramos los activos. Si no, el resto (completado/cancelado)
     const matchesTab = activeTab === 'process' ? isProcess : !isProcess; 
 
     const matchesSearch = searchQuery === "" || 
@@ -124,7 +122,6 @@ export const OrderTrackingScreen = () => {
       { text: "Cancelar", style: "cancel" },
       { text: "Sí", onPress: async () => {
         try {
-          // GUARDAMOS 'completado'
           await DatabaseService.updateOrderStatus(Number(orderId), 'completado', 'Completado por Admin', 'Entregado ahora');
           setIsModalVisible(false); setSelectedOrder(null); loadOrders();
         } catch (error) { Alert.alert("Error", "Fallo al completar"); }
@@ -137,7 +134,6 @@ export const OrderTrackingScreen = () => {
       { text: "No", style: "cancel" },
       { text: "Sí", style: 'destructive', onPress: async () => {
         try {
-          // GUARDAMOS 'cancelado'
           await DatabaseService.updateOrderStatus(Number(orderId), 'cancelado', 'Cancelado por Admin', 'Cancelado ahora');
           setIsModalVisible(false); setSelectedOrder(null); loadOrders();
         } catch (error) { Alert.alert("Error", "Fallo al cancelar"); }

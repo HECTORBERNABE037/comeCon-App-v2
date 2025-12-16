@@ -6,7 +6,7 @@ import DatabaseService from './src/services/DatabaseService';
 
 const App: React.FC = () => {
   
-  // Inicializamos la BD al arrancar la app
+  // Inicializamos la bd al arrancar la app
   useEffect(() => {
     const initDB = async () => {
       await DatabaseService.init();

@@ -20,7 +20,6 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('cash'); // 'cash' o el ID de la tarjeta
 
-  // Cargar datos (Carrito + Tarjetas)
   useFocusEffect(
     React.useCallback(() => {
       const loadData = async () => {
@@ -45,7 +44,6 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
       { text: "Cancelar", style: "cancel" },
       { text: "Sí", onPress: async () => {
           await DatabaseService.deleteCard(cardId);
-          // Recargar tarjetas manualmente
           const cards = await DatabaseService.getCards(Number(user?.id));
           setSavedCards(cards);
           if(selectedPaymentId === cardId.toString()) setSelectedPaymentId('cash');
@@ -58,7 +56,6 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Determinamos el texto del pago
       let paymentDetails = 'Pago en Efectivo';
       if (selectedPaymentId !== 'cash') {
         const card = savedCards.find(c => c.id.toString() === selectedPaymentId);
@@ -109,7 +106,6 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Método de Pago</Text>
           
-          {/* 1. Lista de Tarjetas Guardadas */}
           {savedCards.map((card) => (
             <TouchableOpacity 
               key={card.id}
@@ -133,7 +129,6 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           ))}
 
-          {/* 2. Opción Agregar Tarjeta (Solo si hay espacio < 3) */}
           {savedCards.length < 3 && (
             <TouchableOpacity style={styles.addCardButton} onPress={() => navigation.navigate('AddCard')}>
               <Ionicons name="add-circle-outline" size={24} color={COLORS.primary} />
@@ -170,7 +165,6 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
 
       </ScrollView>
 
-      {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.calcRow}><Text style={styles.calcLabel}>Subtotal</Text><Text style={styles.calcValue}>${subtotal.toFixed(2)}</Text></View>
         <View style={styles.calcRow}><Text style={styles.calcLabel}>Envío</Text><Text style={styles.calcValue}>${shipping.toFixed(2)}</Text></View>

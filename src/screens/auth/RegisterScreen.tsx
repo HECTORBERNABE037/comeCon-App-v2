@@ -10,14 +10,13 @@ import {
   KeyboardAvoidingView, 
   Platform,
   StatusBar,
-  ScrollView // Agregamos ScrollView para pantallas pequeñas
+  ScrollView 
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RegisterFormData, COLORS, FONT_SIZES,RootStackParamList } from "../../../types";
 import { Ionicons } from '@expo/vector-icons';
 import { useForm } from '../../hooks/useForm';
 import { validateRegister } from '../../utils/validationRules';
-// Importamos el servicio de base de datos
 import DatabaseService from '../../services/DatabaseService';
 
 const loginImage = require("../../../assets/logoApp.png");
@@ -30,7 +29,6 @@ interface RegisterScreenProps {
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   
-  // Inicializamos con el campo 'name' nuevo
   const { formData, errors, updateFormData, validate } = useForm<RegisterFormData>(
     { name: "", email: "", phone: "", password: "", confirmPassword: "" },
     validateRegister 
@@ -39,7 +37,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleRegister = async () => {
-    // 1. Validar el formulario (Frontend)
+    // Validar el formulario 
     if (!validate()) {
       return;
     }
@@ -47,7 +45,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
     setIsLoading(true);
 
     try {
-      // 2. Intentar registrar en SQLite
+      // Intentar registrar en SQLite
       const success = await DatabaseService.registerUser({
         name: formData.name,
         email: formData.email,
@@ -95,7 +93,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
         <View style={styles.formContainer}>
           
-          {/* CAMPO NUEVO: NOMBRE */}
           <TextInput
             style={styles.input}
             placeholder="Nombre Completo"
