@@ -19,6 +19,7 @@ import { ForgotPasswordFormData, COLORS, FONT_SIZES,RootStackParamList } from ".
 import { useForm } from '../../hooks/useForm';
 import { validateForgotPassword } from '../../utils/validationRules';
 import DatabaseService from '../../services/DatabaseService';
+import { DataRepository } from "../../services/DataRepository";
 
 // Imagen
 const loginImage = require("../../../assets/logoApp.png");
@@ -36,43 +37,34 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleSendCode = async (): Promise<void> => {
-    // Validación de formato
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     setIsLoading(true);
 
     try {
-      // Verificar existencia en SQLite 
-      const userExists = await DatabaseService.checkUserExists(formData.emailOrPhone.trim());
+      // VERIFICACIÓN CON BACKEND (vía DataRepository)
+      const userExists = await DataRepository.checkUserExists(formData.emailOrPhone.trim());
 
       setIsLoading(false);
 
       if (userExists) {
-        console.log(`[Simulación] Código enviado a: ${formData.emailOrPhone}`);
-        
         Alert.alert(
           "Código Enviado",
-          "Se ha enviado un código de verificación. (Código simulado: 1234)",
+          "Se envio un código de verificación: 1234",
           [
             { 
               text: "Continuar", 
+              // Pasamos el email a la siguiente pantalla
               onPress: () => navigation.navigate('ResetCode', { emailOrPhone: formData.emailOrPhone })
             }
           ]
         );
       } else {
-        Alert.alert(
-          "Usuario no encontrado", 
-          "No existe ninguna cuenta registrada con este correo o teléfono. Verifica tus datos o regístrate."
-        );
+        Alert.alert("Error", "No existe ninguna cuenta con este correo.");
       }
-
     } catch (error) {
       setIsLoading(false);
-      Alert.alert("Error", "Ocurrió un problema al verificar la cuenta.");
-      console.error("Error en ForgotPassword:", error);
+      Alert.alert("Error", "Ocurrió un problema de conexión.");
     }
   };
 

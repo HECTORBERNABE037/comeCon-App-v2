@@ -56,4 +56,46 @@ export const DataRepository = {
     
     return await ApiService.register(userData);
   },
+
+  // Cambiar contraseña metodos
+  checkUserExists: async (email: string) => {
+    const state = await NetInfo.fetch();
+    if (state.isConnected) {
+      // ONLINE: Preguntar al backend
+      const result = await ApiService.checkEmail(email);
+      if (result.success) return result.exists;
+    }
+    // OFFLINE: No se puede verificar cuentas que no están en el dispositivo,
+    // o podrías buscar en SQLite si quisieras permitir reset local (arriesgado).
+    return false; 
+  },
+
+  updatePassword: async (email: string, newPassword: string) => {
+    const state = await NetInfo.fetch();
+    if (state.isConnected) {
+      // ONLINE: Actualizar en backend
+      return await ApiService.resetPassword(email, newPassword);
+    }
+    return { success: false, error: "Necesitas internet para cambiar tu contraseña." };
+  },
+
+  //METODOS PARA PRODUCTOS
+  getProducts: async () => {
+    const state = await NetInfo.fetch();
+    
+    // 1. ONLINE: Intentar actualizar desde la nube
+    if (state.isConnected) {
+      try {
+        const apiResult = await ApiService.getProducts();
+        if (apiResult.success) {
+          await DatabaseService.syncProducts(apiResult.data);
+        }
+      } catch (e) {
+        console.log("⚠️ Error sync productos, usando caché local.");
+      }
+    }
+    
+    // 2. SIEMPRE devolver desde SQLite (Single Source of Truth)
+    return await DatabaseService.getProducts();
+  },
 };

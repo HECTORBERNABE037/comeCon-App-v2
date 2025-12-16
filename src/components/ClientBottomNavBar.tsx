@@ -1,18 +1,21 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { COLORS } from '../../types';
+import { AuthContext } from '../context/AuthContext'; // Importar AuthContext
 
+// ✅ IMPORTANTE: Debe decir 'export const'
 export const ClientBottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   
+  const { logout } = useContext(AuthContext); // Usar logout del contexto
   const currentRouteName = state.routes[state.index].name;
 
   const handleLogout = () => {
     Alert.alert("Cerrar Sesión", "¿Estás seguro de que quieres salir?", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Salir", onPress: () => navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })) }
+      { text: "Salir", style: "destructive", onPress: () => logout() }
     ]);
   };
 
@@ -28,7 +31,7 @@ export const ClientBottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigat
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.navItem} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={28} color="#C4C4C4" />
+        <Ionicons name="log-out-outline" size={28} color={COLORS.error || "#FF0000"} />
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.navItem, isTrackingActive && styles.activeItem]} onPress={() => handleNavigation('ClientOrderTrackingTab')}>

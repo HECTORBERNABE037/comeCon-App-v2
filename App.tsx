@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import StackNavigator from "./src/navigation/StackNavigator";
 import { AuthProvider } from "./src/context/AuthContext";
 import DatabaseService from './src/services/DatabaseService';
+import { CartProvider } from "./src/context/CartContext";
 
 const App: React.FC = () => {
   
@@ -17,9 +18,11 @@ const App: React.FC = () => {
 
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <StackNavigator />
-      </NavigationContainer>
+       <CartProvider>
+          <NavigationContainer>
+            <StackNavigator />
+          </NavigationContainer>
+        </CartProvider>
     </AuthProvider>
   );
 };

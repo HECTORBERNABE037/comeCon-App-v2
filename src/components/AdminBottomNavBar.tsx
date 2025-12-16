@@ -1,26 +1,24 @@
-import React from 'react';
+import React, { useContext } from 'react'; // Agregamos useContext
 import { View, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { COLORS } from '../../types';
+import { AuthContext } from '../context/AuthContext'; // Importamos AuthContext
 
+// ✅ IMPORTANTE: Debe decir 'export const'
 export const AdminBottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   
-  // Obtenemos el nombre de la ruta activa actual usando el índice
+  const { logout } = useContext(AuthContext); // Usamos el logout del contexto
   const currentRouteName = state.routes[state.index].name;
 
   const handleLogout = () => {
     Alert.alert("Cerrar Sesión", "¿Estás seguro de que quieres salir?", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Salir", onPress: () => 
-          // Reseteamos al Stack principal, pantalla Login
-          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })) 
-      }
+      { text: "Salir", style: "destructive", onPress: () => logout() }
     ]);
   };
 
-  // Función para navegar entre pestañas
   const handleNavigation = (routeName: string) => {
     const event = navigation.emit({
       type: 'tabPress',
@@ -33,7 +31,6 @@ export const AdminBottomNavBar: React.FC<BottomTabBarProps> = ({ state, descript
     }
   };
 
-  // Mapeo de tus nombres de ruta en Tabs a los iconos y lógica visual
   const isHomeActive = currentRouteName === 'HomeAdminTab';
   const isOrdersActive = currentRouteName === 'OrderTrackingTab';
   const isSettingsActive = currentRouteName === 'SettingsTab';
@@ -43,7 +40,7 @@ export const AdminBottomNavBar: React.FC<BottomTabBarProps> = ({ state, descript
     <View style={styles.container}>
       
       <TouchableOpacity style={styles.navItem} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={28} color="#C4C4C4" />
+        <Ionicons name="log-out-outline" size={28} color={COLORS.error || "#D32F2F"} />
       </TouchableOpacity>
 
       <TouchableOpacity 
@@ -51,6 +48,7 @@ export const AdminBottomNavBar: React.FC<BottomTabBarProps> = ({ state, descript
         onPress={() => handleNavigation('OrderTrackingTab')}
       >
         <Ionicons name="receipt-outline" size={26} color={isOrdersActive ? COLORS.primary : "#C4C4C4"} />
+        {/* Badge opcional */}
         {!isOrdersActive && <View style={styles.badge} />}
       </TouchableOpacity>
 

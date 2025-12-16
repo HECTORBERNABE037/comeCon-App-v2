@@ -18,6 +18,7 @@ import { useForm } from '../../hooks/useForm';
 import { validateSetNewPassword } from '../../utils/validationRules';
 
 import DatabaseService from '../../services/DatabaseService';
+import { DataRepository } from "../../services/DataRepository";
 
 const loginImage = require("../../../assets/logoApp.png");
 
@@ -36,42 +37,31 @@ export const SetNewPasswordScreen: React.FC<Props> = ({ navigation, route }) => 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleSetPassword = async (): Promise<void> => {
-    // Validar el formulario 
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     setIsLoading(true);
 
     try {
-      // Actualizar en SQLite
-      const success = await DatabaseService.updatePassword(emailOrPhone, formData.newPassword);
+      // ACTUALIZACIÓN EN BACKEND
+      const result = await DataRepository.updatePassword(emailOrPhone, formData.newPassword);
       
       setIsLoading(false);
 
-      if (success) {
+      if (result.success) {
         Alert.alert(
           "Éxito",
-          "Tu contraseña ha sido cambiada correctamente. Por favor, inicia sesión con tu nueva credencial.",
-          [
-            { 
+          "Tu contraseña ha sido actualizada en el servidor.",
+          [{ 
               text: "Ir al Login", 
-              onPress: () => {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
-              } 
-            }
-          ]
+              onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) 
+          }]
         );
       } else {
-        Alert.alert("Error", "No se pudo actualizar la contraseña. Inténtalo de nuevo.");
+        Alert.alert("Error", result.error || "No se pudo actualizar.");
       }
 
     } catch (error) {
       setIsLoading(false);
-      console.error(error);
       Alert.alert("Error", "Ocurrió un error inesperado.");
     }
   };

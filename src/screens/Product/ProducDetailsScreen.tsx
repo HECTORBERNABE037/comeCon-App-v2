@@ -5,23 +5,44 @@ import {
 import { StackScreenProps } from '@react-navigation/stack';
 import { COLORS, FONT_SIZES, RootStackParamList } from '../../../types';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import DatabaseService from '../../services/DatabaseService';
+import DatabaseService from '../../services/DatabaseService'; // O DataRepository si implementas carrito ahí
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 
 type Props = StackScreenProps<RootStackParamList, 'ProductDetails'>;
 
+// Reutilizamos el helper de imágenes
+const resolveImage = (imageSource: string | any) => {
+  if (!imageSource) return require('../../../assets/logoApp.png');
+  if (typeof imageSource === 'string' && (imageSource.startsWith('http') || imageSource.startsWith('file://'))) {
+    return { uri: imageSource };
+  }
+  switch (imageSource) {
+    case 'bowlFrutas': return require('../../../assets/bowlFrutas.png');
+    case 'tostadaAguacate': return require('../../../assets/tostadaAguacate.png');
+    case 'Panques': return require('../../../assets/Panques.png');
+    case 'cafePanda': return require('../../../assets/cafePanda.png');
+    default: return require('../../../assets/logoApp.png');
+  }
+};
+
 export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { platillo } = route.params;
+  const { addToCart } = useCart();
+
+  const { platillo } = route.params; // Datos recibidos del Home
   const { user } = useAuth(); 
 
   const activePrice = platillo.promotionalPrice || platillo.price;
   const hasPromo = !!platillo.promotionalPrice;
+  
+  const imageSource = resolveImage(platillo.image);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
 
   useEffect(() => {
+    // Lógica simple de tallas basada en el nombre (puedes mejorar esto con datos del backend luego)
     if (platillo.title.includes('Cafe') || platillo.title.includes('Bebida')) {
       setAvailableSizes(['M', 'G']); setSelectedSize('M');
     } else if (platillo.title.includes('Bowl') || platillo.title.includes('Ensalada')) {
@@ -36,27 +57,22 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleAddToCart = async () => {
     if (!user) {
-      Alert.alert("Error", "Debes iniciar sesión para comprar.");
+      Alert.alert("Error", "Inicia sesión primero.");
       return;
     }
-
-    try {
-      // Guardar en SQLite
-      await DatabaseService.addToCart(Number(user.id), Number(platillo.id), quantity);
-      
-      Alert.alert(
-        'Añadido al carrito',
-        `${quantity}x ${platillo.title} añadido exitosamente.`
-      );
+    // Usamos el Context para que el badge se actualice solo
+    const success = await addToCart(Number(platillo.id), quantity);
+    
+    if (success) {
+      Alert.alert('¡Listo!', 'Producto agregado al carrito.');
       navigation.goBack(); 
-    } catch (error) {
-      Alert.alert("Error", "No se pudo añadir al carrito.");
     }
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+      
       <View style={styles.headerCard}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={handleGoBack}><Ionicons name="arrow-back" size={28} color={COLORS.text} /></TouchableOpacity>
@@ -68,7 +84,13 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.imageContainer}><Image source={platillo.image} style={styles.image} /></View>
+        
+        {/* IMAGEN */}
+        <View style={styles.imageContainer}>
+          <Image source={imageSource} style={styles.image} />
+        </View>
+
+        {/* CANTIDAD FLOTANTE */}
         <View style={styles.floatingQuantityContainer}>
           <View style={styles.quantitySelector}>
             <TouchableOpacity style={styles.quantityButton} onPress={() => setQuantity(q => Math.max(1, q - 1))}><Ionicons name="remove" size={24} color={COLORS.text} /></TouchableOpacity>
@@ -77,21 +99,31 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
 
+        {/* INFO */}
         <View style={styles.infoContainer}>
           <Text style={styles.title}>{platillo.title}</Text>
+          
           <View style={styles.sizesRow}>
             {availableSizes.map((size) => (
-              <TouchableOpacity key={size} style={[styles.sizeButton, selectedSize === size ? styles.sizeButtonSelected : styles.sizeButtonUnselected, size === 'Único' && styles.sizeButtonUnique]} onPress={() => setSelectedSize(size)} disabled={size === 'Único'}>
+              <TouchableOpacity 
+                key={size} 
+                style={[styles.sizeButton, selectedSize === size ? styles.sizeButtonSelected : styles.sizeButtonUnselected, size === 'Único' && styles.sizeButtonUnique]} 
+                onPress={() => setSelectedSize(size)} 
+                disabled={size === 'Único'}
+              >
                 <Text style={[styles.sizeText, selectedSize === size ? styles.sizeTextSelected : styles.sizeTextUnselected]}>{size}</Text>
               </TouchableOpacity>
             ))}
           </View>
+
           <View style={styles.priceRow}>
              {hasPromo && <Text style={styles.oldPriceText}>${platillo.price}</Text>}
              <Text style={[styles.price, hasPromo && { color: '#2E7D32' }]}>${activePrice}</Text>
           </View>
+          
           <Text style={styles.descriptionTitle}>Descripción</Text>
           <Text style={styles.descriptionText}>{platillo.description || "Sin descripción disponible."}</Text>
+          
           <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
             <Text style={styles.addToCartText}>añadir al carrito</Text>
           </TouchableOpacity>
@@ -101,6 +133,7 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
+// ESTILOS ORIGINALES CONSERVADOS
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F2' },
   headerCard: { backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 40 : 20, paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, zIndex: 10 },
@@ -130,6 +163,4 @@ const styles = StyleSheet.create({
   descriptionText: { fontSize: FONT_SIZES.medium, color: '#888', lineHeight: 22, marginBottom: 30 },
   addToCartButton: { width: '100%', height: 60, backgroundColor: COLORS.primary, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 3, marginBottom: 20 },
   addToCartText: { color: COLORS.white, fontSize: FONT_SIZES.large, fontWeight: 'bold', textTransform: 'lowercase' },
-  cartBadge: { position: 'absolute', top: -5, right: -5, backgroundColor: '#F57C00', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: COLORS.white },
-  cartBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold' },
 });

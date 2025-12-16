@@ -44,4 +44,52 @@ export const ApiService = {
       return { success: false, error: "Error de conexión", isNetworkError: true }; 
     }
   },
+  //cambiar contraseña metodos
+  checkEmail: async (email: string) => {
+    try {
+      const response = await fetch(`${API_URL}/check-email/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (response.ok) return { success: true, exists: data.exists };
+      return { success: false, error: "Error al verificar email" };
+    } catch (e) {
+      return { success: false, error: "Error de conexión", isNetworkError: true };
+    }
+  },
+
+  resetPassword: async (email: string, newPassword: string) => {
+    try {
+      const response = await fetch(`${API_URL}/reset-password/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, new_password: newPassword }),
+      });
+      if (response.ok) return { success: true };
+      return { success: false, error: "No se pudo actualizar la contraseña" };
+    } catch (e) {
+      return { success: false, error: "Error de conexión", isNetworkError: true };
+    }
+  },
+  getProducts: async () => {
+    try {
+      // Nota: Django suele paginar. Si usas DefaultRouter, tal vez devuelva { results: [...] } o un array directo.
+      // Asumiremos que devuelve un array o extraemos 'results'.
+      const response = await fetch(`${API_URL}/products/`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        // Soporte para paginación de Django (si devuelve { count: ..., results: [...] })
+        const products = Array.isArray(data) ? data : data.results;
+        return { success: true, data: products };
+      }
+      return { success: false, error: "Error al obtener productos" };
+    } catch (e) {
+      return { success: false, error: "Error de conexión", isNetworkError: true };
+    }
+  },
 };
