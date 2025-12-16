@@ -10,14 +10,12 @@ import {
   KeyboardAvoidingView, 
   Platform,
   StatusBar,
-  ScrollView 
+  ScrollView,
+  ActivityIndicator
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { RegisterFormData, COLORS, FONT_SIZES,RootStackParamList } from "../../../types";
-import { Ionicons } from '@expo/vector-icons';
-import { useForm } from '../../hooks/useForm';
-import { validateRegister } from '../../utils/validationRules';
-import DatabaseService from '../../services/DatabaseService';
+import { COLORS, FONT_SIZES, RootStackParamList } from "../../../types";
+import { DataRepository } from '../../services/DataRepository'; // <--- NUEVO: Repositorio
 
 const loginImage = require("../../../assets/logoApp.png");
 
@@ -29,165 +27,156 @@ interface RegisterScreenProps {
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   
-  const { formData, errors, updateFormData, validate } = useForm<RegisterFormData>(
-    { name: "", email: "", phone: "", password: "", confirmPassword: "" },
-    validateRegister 
-  );
-
+  // LÓGICA NUEVA: Estados simples en lugar de useForm
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleRegister = async () => {
-    // Validar el formulario 
-    if (!validate()) {
+    // Validaciones básicas
+    if (!name || !email || !password || !confirmPassword) {
+      Alert.alert("Error", "Todos los campos son obligatorios (excepto teléfono)");
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Las contraseñas no coinciden");
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert("Error", "La contraseña debe tener al menos 8 caracteres");
       return;
     }
 
     setIsLoading(true);
 
-    try {
-      // Intentar registrar en SQLite
-      const success = await DatabaseService.registerUser({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password
-      });
+    // Llamamos al Repositorio (valida internet automáticamente)
+    const result = await DataRepository.register({
+      name,
+      email,
+      phone,
+      password // Django se encargará de hashear
+    });
 
-      setIsLoading(false);
+    setIsLoading(false);
 
-      if (success) {
-        Alert.alert(
-          "Registro Exitoso",
-          "Tu cuenta ha sido creada. Ahora inicia sesión.",
-          [{ text: "OK", onPress: () => navigation.navigate('Login') }]
-        );
-      } else {
-        Alert.alert("Error", "El correo ya está registrado o hubo un problema.");
-      }
-
-    } catch (error) {
-      setIsLoading(false);
-      Alert.alert("Error", "Ocurrió un error inesperado.");
+    if (result.success) {
+      Alert.alert(
+        "¡Cuenta Creada!", 
+        "Tu registro fue exitoso. Inicia sesión para continuar.",
+        [{ text: "Ir al Login", onPress: () => navigation.navigate("Login") }]
+      );
+    } else {
+      Alert.alert("Error de Registro", result.error || "No se pudo crear la cuenta.");
     }
   };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"} 
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={28} color={COLORS.textSecondary} />
-      </TouchableOpacity>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
         
         <View style={styles.logoContainer}>
           <Image source={loginImage} style={styles.logoImage} />
         </View>
 
-        <Text style={styles.title}>ComeCon</Text>
-        <Text style={styles.subtitle}>Crear una cuenta</Text>
+        <Text style={styles.title}>Crear Cuenta</Text>
+        <Text style={styles.subtitle}>Únete a ComeCon hoy mismo</Text>
 
         <View style={styles.formContainer}>
-          
           <TextInput
             style={styles.input}
             placeholder="Nombre Completo"
-            placeholderTextColor={COLORS.placeholder}
-            value={formData.name}
-            onChangeText={(text) => updateFormData("name", text)}
-            autoCapitalize="words"
-            editable={!isLoading}
+            placeholderTextColor={COLORS.textSecondary}
+            value={name}
+            onChangeText={setName}
           />
-          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
           <TextInput
             style={styles.input}
-            placeholder="Correo"
-            placeholderTextColor={COLORS.placeholder}
-            value={formData.email}
-            onChangeText={(text) => updateFormData("email", text)}
+            placeholder="Correo Electrónico"
+            placeholderTextColor={COLORS.textSecondary}
             keyboardType="email-address"
             autoCapitalize="none"
-            editable={!isLoading}
+            value={email}
+            onChangeText={setEmail}
           />
-          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-          
+
           <TextInput
             style={styles.input}
-            placeholder="Teléfono"
-            placeholderTextColor={COLORS.placeholder}
-            value={formData.phone}
-            onChangeText={(text) => updateFormData("phone", text)}
+            placeholder="Teléfono (Opcional)"
+            placeholderTextColor={COLORS.textSecondary}
             keyboardType="phone-pad"
-            maxLength={10}
-            editable={!isLoading}
+            value={phone}
+            onChangeText={setPhone}
           />
-          {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
-          
+
           <TextInput
             style={styles.input}
             placeholder="Contraseña"
-            placeholderTextColor={COLORS.placeholder}
-            value={formData.password}
-            onChangeText={(text) => updateFormData("password", text)}
+            placeholderTextColor={COLORS.textSecondary}
             secureTextEntry
-            editable={!isLoading}
+            value={password}
+            onChangeText={setPassword}
           />
-          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-          
+
           <TextInput
             style={styles.input}
             placeholder="Confirmar Contraseña"
-            placeholderTextColor={COLORS.placeholder}
-            value={formData.confirmPassword}
-            onChangeText={(text) => updateFormData("confirmPassword", text)}
+            placeholderTextColor={COLORS.textSecondary}
             secureTextEntry
-            editable={!isLoading}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
           />
-          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-          
-          <TouchableOpacity
-            style={[styles.loginButton, { opacity: isLoading ? 0.6 : 1 }]}
+
+          <TouchableOpacity 
+            style={[styles.registerButton, isLoading && { opacity: 0.7 }]} 
             onPress={handleRegister}
             disabled={isLoading}
           >
-            <Text style={styles.loginButtonText}>
-              {isLoading ? "REGISTRANDO..." : "REGISTRARSE"}
-            </Text>
+            {isLoading ? (
+               <ActivityIndicator color={COLORS.white} />
+            ) : (
+               <Text style={styles.registerButtonText}>Registrarse</Text>
+            )}
           </TouchableOpacity>
+
+          <View style={styles.loginContainer}>
+             <Text style={styles.loginText}>¿Ya tienes cuenta? </Text>
+             <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+               <Text style={styles.loginLink}>Inicia Sesión</Text>
+             </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
+// ESTILOS ORIGINALES RESTAURADOS
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.background 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
-  scrollContent: { 
-    flexGrow: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    paddingHorizontal: 30,
-    paddingVertical: 40
-  },
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? 40 : 60, // Ajustado para no chocar con statusbar
-    left: 20,
-    zIndex: 10,
+  scrollContainer: {
+    flexGrow: 1,
+    padding: 24,
+    justifyContent: 'center',
   },
   logoContainer: {
-    width: 150, // Un poco más pequeño para dar espacio al form
-    height: 150,
-    borderRadius: 30,
+    width: 100, // Ajustado para ser un poco más pequeño en registro
+    height: 100,
+    borderRadius: 25,
     backgroundColor: COLORS.surfaceSecondary,
+    alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -198,8 +187,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   logoImage: { 
-    width: 100, 
-    height: 100, 
+    width: 70, 
+    height: 70, 
     resizeMode: 'contain'
   },
   title: { 
@@ -216,38 +205,56 @@ const styles = StyleSheet.create({
     marginBottom: 25
   },
   formContainer: { 
-    width: "100%", 
+    backgroundColor: COLORS.white, // Fondo blanco tipo tarjeta
+    borderRadius: 15,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
   input: { 
     height: 55, 
     backgroundColor: COLORS.surface, 
     borderRadius: 12, 
     paddingHorizontal: 20, 
-    marginBottom: 5, 
+    marginBottom: 15, 
     fontSize: FONT_SIZES.medium, 
     color: COLORS.text,
-    borderWidth: 0, 
   },
-  loginButton: { 
-    backgroundColor: COLORS.primary, 
+  registerButton: { 
+    backgroundColor: COLORS.primary,
     height: 55, 
     borderRadius: 12, 
     justifyContent: "center", 
-    alignItems: "center", 
-    marginTop: 20,
-    elevation: 3,
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 20,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
-  loginButtonText: { 
+  registerButtonText: { 
     color: COLORS.white, 
-    fontSize: FONT_SIZES.medium, 
+    fontSize: FONT_SIZES.large, 
     fontWeight: "bold" 
   },
-  errorText: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.small,
-    marginLeft: 10,
-    marginBottom: 10,
-  }
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  loginText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.medium,
+  },
+  loginLink: {
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    fontSize: FONT_SIZES.medium,
+  },
 });
 
 export default RegisterScreen;

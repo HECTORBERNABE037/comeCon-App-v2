@@ -1,4 +1,4 @@
-import React, { useState } from "react"; // Quitamos useEffect de imports
+import React, { useState, useContext } from "react";
 import { 
   View, 
   Text, 
@@ -9,14 +9,13 @@ import {
   Alert, 
   KeyboardAvoidingView, 
   Platform,
-  StatusBar 
+  StatusBar,
+  ScrollView,
+  ActivityIndicator
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { LoginFormData, COLORS, FONT_SIZES, RootStackParamList } from "../../../types"; 
-import { useForm } from '../../hooks/useForm';
-import { validateLogin } from '../../utils/validationRules';
-import DatabaseService from '../../services/DatabaseService';
-import { useAuth } from '../../context/AuthContext'; 
+import { COLORS, FONT_SIZES, RootStackParamList } from "../../../types"; 
+import { AuthContext } from '../../context/AuthContext'; // <--- NUEVO: Usamos Contexto
 
 const loginImage = require("../../../assets/logoApp.png");
 
@@ -28,125 +27,106 @@ interface LoginScreenProps {
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   
-  const { signIn } = useAuth();
-  const { formData, errors, updateFormData, validate } = useForm<LoginFormData>(
-    { email: "", password: "" },
-    validateLogin
-  );
-
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const handleLogin = async (): Promise<void> => {
-    if (!validate()) return;
-
-    setIsLoading(true);
-
-    try {
-      const success = await signIn(formData.email.trim(), formData.password);
-
-      if (success) {
-        const user = await DatabaseService.loginUser(formData.email.trim(), formData.password);
-        setIsLoading(false);
-
-        if (user?.role === 'administrador') {
-          navigation.replace("AdminTabsNavigator");
-        } else {
-          navigation.replace("ClientTabsNavigator");
-        }
-      } else {
-        setIsLoading(false);
-        Alert.alert("Error", "Credenciales incorrectas o usuario no registrado.");
-      }
-
-    } catch (error) {
-      setIsLoading(false);
-      Alert.alert("Error", "Ocurrió un problema al intentar iniciar sesión.");
-      console.error(error);
-    }
-  };
+  // LÓGICA NUEVA: Usamos el contexto en lugar de useForm/DatabaseService
+  const { login, isLoading } = useContext(AuthContext);
   
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Por favor ingresa correo y contraseña');
+      return;
+    }
+
+    // Llamamos al AuthContext (maneja Online/Offline internamente)
+    const result = await login({ email, password });
+
+    if (!result.success) {
+      Alert.alert('Error', result.error || 'Credenciales incorrectas');
+    }
+    // Si es exitoso, el AuthContext actualiza el estado 'user' y la App navega sola.
+  };
+
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"} 
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-      <View style={styles.content}>
-        
+      
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.logoContainer}>
           <Image source={loginImage} style={styles.logoImage} />
         </View>
 
         <Text style={styles.title}>ComeCon</Text>
-        <Text style={styles.subtitle}>Iniciar Sesión</Text>
+        <Text style={styles.subtitle}>Tu comida favorita, donde estés</Text>
 
         <View style={styles.formContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Correo o usuario"
-            placeholderTextColor={COLORS.placeholder}
-            value={formData.email}
-            onChangeText={(text) => updateFormData("email", text)} 
+            placeholder="Correo Electrónico"
+            placeholderTextColor={COLORS.textSecondary}
             keyboardType="email-address"
             autoCapitalize="none"
-            editable={!isLoading}
+            value={email}
+            onChangeText={setEmail} // <--- Conectado a estado simple
           />
-          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-          
+
           <TextInput
             style={styles.input}
             placeholder="Contraseña"
-            placeholderTextColor={COLORS.placeholder}
-            value={formData.password}
-            onChangeText={(text) => updateFormData("password", text)} 
+            placeholderTextColor={COLORS.textSecondary}
             secureTextEntry
-            editable={!isLoading}
+            value={password}
+            onChangeText={setPassword} // <--- Conectado a estado simple
           />
-          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
-          <TouchableOpacity
-            style={[styles.loginButton, { opacity: isLoading ? 0.6 : 1 }]}
+          <TouchableOpacity 
+            style={styles.forgotPassword}
+            onPress={() => navigation.navigate("ForgotPassword")}
+          >
+            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.loginButton, isLoading && { opacity: 0.7 }]} 
             onPress={handleLogin}
             disabled={isLoading}
           >
-            <Text style={styles.loginButtonText}>
-              {isLoading ? "VERIFICANDO..." : "INICIAR SESION"}
-            </Text>
+            {isLoading ? (
+               <ActivityIndicator color={COLORS.white} />
+            ) : (
+               <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+            )}
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.linksContainer}>
-          <TouchableOpacity onPress={()=>navigation.navigate('ForgotPassword')}>
-            <Text style={styles.linkText}>¿Olvidaste la contraseña?</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={()=>navigation.navigate('Register')}>
-            <Text style={styles.linkText}>Regístrate</Text>
-          </TouchableOpacity>
+          <View style={styles.registerContainer}>
+            <Text style={styles.registerText}>¿No tienes cuenta? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+              <Text style={styles.registerLink}>Regístrate</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
+// ESTILOS ORIGINALES RESTAURADOS
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: COLORS.background 
   },
-  content: { 
-    flex: 1, 
+  scrollContainer: { 
+    flexGrow: 1, 
     justifyContent: "center", 
-    alignItems: "center", 
-    paddingHorizontal: 30 
+    padding: 20 
   },
-  logoContainer: {
-    width: 180,
-    height: 180,
-    borderRadius: 30, 
-    backgroundColor: COLORS.surfaceSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoContainer: { 
+    alignSelf: "center", 
     marginBottom: 25,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -180,40 +160,57 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface, 
     borderRadius: 12, 
     paddingHorizontal: 20, 
-    marginBottom: 5, 
+    marginBottom: 15, // Ajustado ligeramente para consistencia
     fontSize: FONT_SIZES.medium, 
     color: COLORS.text,
     borderWidth: 0, 
+    // Sombra sutil en inputs
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  forgotPassword: { 
+    alignSelf: "flex-end", 
+    marginBottom: 30 
+  },
+  forgotPasswordText: { 
+    color: COLORS.primary, 
+    fontSize: FONT_SIZES.small, 
+    fontWeight: "600" 
   },
   loginButton: { 
     backgroundColor: COLORS.primary,
     height: 55, 
     borderRadius: 12, 
     justifyContent: "center", 
-    alignItems: "center", 
-    marginTop: 20,
-    elevation: 3,
+    alignItems: "center",
+    marginBottom: 20,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
   loginButtonText: { 
     color: COLORS.white, 
-    fontSize: FONT_SIZES.medium, 
+    fontSize: FONT_SIZES.large, 
     fontWeight: "bold" 
   },
-  linksContainer: {
-    width: '100%',
-    alignItems: 'center',
-    marginTop: 25,
+  registerContainer: { 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    marginTop: 10 
   },
-  linkText: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZES.small,
-    marginTop: 15, 
+  registerText: { 
+    color: COLORS.textSecondary, 
+    fontSize: FONT_SIZES.medium 
   },
-  errorText: {
-    color: COLORS.error, 
-    fontSize: FONT_SIZES.small,
-    marginLeft: 10,
-    marginBottom: 10,
+  registerLink: { 
+    color: COLORS.primary, 
+    fontWeight: "bold", 
+    fontSize: FONT_SIZES.medium 
   }
 });
 

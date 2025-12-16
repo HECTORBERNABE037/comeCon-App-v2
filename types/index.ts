@@ -34,7 +34,7 @@ export interface BaseEntity {
 export interface Usuario extends BaseEntity {
   nombre: string;
   email: string;
-  telefono?: string;
+  phone?: string;
   role: UserRole;
   nickname?:string;
   gender?:string;
@@ -195,8 +195,8 @@ export type RootStackParamList = {
   ResetCode: { emailOrPhone: string };
   SetNewPassword: { emailOrPhone: string };
   
-  AdminTabsNavigator: undefined;
-  ClientTabsNavigator: undefined;
+  ClientRoot: undefined;
+  AdminRoot: undefined;
 
   ProductDetails: { platillo: Platillo };
   Cart: undefined;

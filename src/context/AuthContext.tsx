@@ -1,86 +1,108 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
-import { Usuario } from '../../types';
+import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DataRepository } from '../services/DataRepository';
 import DatabaseService from '../services/DatabaseService';
+import { Usuario, LoginFormData } from '../../types';
 
-// Definimos qué datos y funciones tendrá nuestro contexto
-interface AuthContextData {
+interface AuthContextType {
   user: Usuario | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<boolean>;
-  signOut: () => void;
-  refreshUser: () => Promise<void>; 
+  login: (data: LoginFormData) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  checkSession: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+
+// ✅ SOLUCIÓN AL ERROR: Creamos y exportamos el hook useAuth
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth debe usarse dentro de un AuthProvider");
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<Usuario | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const signIn = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
+  // 1. CARGAR SESIÓN AL INICIAR LA APP
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  const checkSession = async () => {
     try {
-      const dbUser = await DatabaseService.loginUser(email, password);
-      
-      if (dbUser) {
-        const mappedUser: Usuario = {
-          id: dbUser.id,
-          nombre: dbUser.name,
-          email: dbUser.email,
-          role: dbUser.role as "cliente" | "administrador",
-          telefono: dbUser.phone,
-          nickname: dbUser.nickname,
-          gender: dbUser.gender,
-          country: dbUser.country,
-          address: dbUser.address,
-          image: dbUser.image,
-          allowNotifications: dbUser.allowNotifications === 1,
-          allowCamera: dbUser.allowCamera === 1
-        };
-        setUser(mappedUser);
-        return true;
+      // Nota: DatabaseService.init() ya se llama en App.tsx, no lo duplicamos aquí
+      const token = await AsyncStorage.getItem('userToken');
+      const email = await AsyncStorage.getItem('userEmail');
+
+      if (token && email) {
+        console.log("🔄 Sesión encontrada, cargando usuario...");
+        const localUser = await DatabaseService.getLocalUser(email);
+        
+        if (localUser) {
+          setUser({
+            id: localUser.id.toString(),
+            nombre: localUser.name,
+            email: localUser.email,
+            role: localUser.role as any,
+            nickname: localUser.nickname,
+            image: localUser.image ? { uri: localUser.image } : undefined,
+            phone: localUser.phone
+          });
+        }
       }
-      return false;
-    } catch (error) {
-      console.error("AuthContext Login Error:", error);
-      return false;
+    } catch (e) {
+      console.log("No hay sesión previa o error cargándola");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signOut = () => {
-    setUser(null);
-  };
-
-  const refreshUser = async () => {
-    if (!user) return;
+  // 2. LOGIN
+  const login = async (data: LoginFormData) => {
+    setIsLoading(true);
     try {
-      const dbUser = await DatabaseService.getUserByEmail(user.email);
-      if (dbUser) {
+      const result = await DataRepository.login(data.email, data.password);
+
+      if (result.success && result.user) {
+        if (result.token) {
+           await AsyncStorage.setItem('userToken', result.token);
+           await AsyncStorage.setItem('userEmail', result.user.email);
+        }
+
         setUser({
-          ...user,
-          nombre: dbUser.name,
-          nickname: dbUser.nickname,
-          telefono: dbUser.phone,
-          gender: dbUser.gender,
-          country: dbUser.country,
-          address: dbUser.address,
-          image: dbUser.image,
-          allowNotifications: dbUser.allowNotifications === 1,
-          allowCamera: dbUser.allowCamera === 1
+          id: result.user.id ? result.user.id.toString() : '0',
+          nombre: result.user.name || '',
+          email: result.user.email,
+          role: result.user.role as any,
+          nickname: result.user.nickname,
+          phone: result.user.phone,
+          image: result.user.image ? { uri: result.user.image } : undefined 
         });
+        return { success: true };
+      } else {
+        return { success: false, error: result.error || "Error al iniciar sesión" };
       }
     } catch (error) {
-      console.error("Error refrescando usuario:", error);
+      return { success: false, error: "Error inesperado" };
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // 3. LOGOUT
+  const logout = async () => {
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userEmail');
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, checkSession }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);
