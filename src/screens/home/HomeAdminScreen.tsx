@@ -1,6 +1,18 @@
 import React, { useState, useCallback } from "react";
 import { 
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, TextInput, Image, FlatList, StatusBar, Platform, ActivityIndicator, RefreshControl
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  Alert, 
+  TextInput,
+  Image,
+  FlatList,
+  StatusBar,
+  Platform,
+  ActivityIndicator,
+  RefreshControl
 } from "react-native";
 import { useFocusEffect, CompositeNavigationProp } from "@react-navigation/native"; 
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -8,6 +20,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
 import { RootStackParamList, AdminTabParamList, COLORS, FONT_SIZES, Platillo } from "../../../types";
+
 import { EditProductModal } from "../../components/EditProductModal";
 import { PromoteProductModal } from "../../components/PromoteProductModal";
 import { AddProductModal } from "../../components/AddProductModal"; 
@@ -46,7 +59,7 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
   const [selectedProductPromote, setSelectedProductPromote] = useState<Platillo | null>(null);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
 
-  // Cargar Productos
+  // === CARGAR PRODUCTOS ===
   const loadProducts = async () => {
     if (!refreshing) setLoading(true);
     try {
@@ -55,13 +68,21 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
       const formattedProducts: Platillo[] = productsFromDB.map((p:any) => ({
         id: p.id.toString(),
         title: p.title,
+        
+        // ✅ CORRECCIÓN 1: Mapeo explícito de campos faltantes
         subtitle: p.subtitle || '', 
-        price: p.price.toString(),
-        description: p.description || '', 
         category: p.category || 'General', 
 
+        price: p.price.toString(),
+        description: p.description || '',
+        
+        // Guardamos la imagen resuelta para mostrarla
         image: resolveImage(p.image),
+        // Guardamos la original para lógica interna (opcional, pero útil)
+        originalImageString: p.image, 
+
         promotionalPrice: p.promotionalPrice ? p.promotionalPrice.toString() : undefined,
+        promotionId: p.promoId ? p.promoId.toString() : undefined,
         visible: p.visible 
       }));
 
@@ -85,38 +106,57 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
     loadProducts();
   };
 
-  const filteredProducts = advancedSearch(productList, searchQuery, ['title']);
+  const filteredProducts = advancedSearch(productList, searchQuery, ['title', 'category']);
 
-  // --- HANDLERS ---
+  // === HANDLERS ===
 
   const handleAddProduct = async (newProductData: any) => {
-    // ✅ INTEGRACIÓN: Aseguramos datos mínimos para el Backend
-    const productToSend = {
+    const res = await DataRepository.saveProduct({
       ...newProductData,
-      category: newProductData.category || 'General', // Default category
-      visible: true // Default visible
-    };
-
-    const res = await DataRepository.saveProduct(productToSend);
+      category: newProductData.category || 'General',
+      visible: true
+    });
     
     if (res.success) {
       setIsAddModalVisible(false);
-      loadProducts(); // Recargar la lista
-      Alert.alert("Éxito", "Producto creado correctamente.");
+      loadProducts();
+      Alert.alert("Éxito", "Producto añadido.");
     } else {
-      Alert.alert("Error", res.error || "No se pudo crear el producto.");
+      Alert.alert("Error", res.error || "No se pudo crear.");
     }
   };
 
-  const handleSaveProduct = async (updatedProduct: Platillo) => {
-    const res = await DataRepository.saveProduct(updatedProduct, Number(updatedProduct.id));
+  // ✅ CORRECCIÓN 2: Lógica de guardado robusta
+  const handleSaveProduct = async (updatedProduct: any) => { // Usamos any para flexibilidad temporal
+    
+    // Problema: 'updatedProduct.image' puede ser un objeto {uri: ...} si no se cambió.
+    // DataRepository espera un string o un objeto con uri nuevo del picker.
+    
+    let imageToSave = updatedProduct.image;
+
+    // Si es un objeto de imagen resuelta (no del picker) y tiene URI, extraemos la URI string
+    if (updatedProduct.image?.uri && typeof updatedProduct.image.uri === 'string') {
+        imageToSave = updatedProduct.image.uri;
+    }
+    // Si es un require (numero), lo dejamos o usamos el original si existe
+    if (typeof imageToSave === 'number' && updatedProduct.originalImageString) {
+        imageToSave = updatedProduct.originalImageString;
+    }
+
+    const cleanProduct = {
+        ...updatedProduct,
+        image: imageToSave
+    };
+
+    const res = await DataRepository.saveProduct(cleanProduct, Number(updatedProduct.id));
+    
     if (res.success) {
       setIsEditModalVisible(false);
       setSelectedProductEdit(null);
-      loadProducts();
+      loadProducts(); // Recarga vital para ver los cambios
       Alert.alert("Éxito", "Producto actualizado.");
     } else {
-      Alert.alert("Error", res.error);
+      Alert.alert("Error", res.error || "No se pudo actualizar.");
     }
   };
 
@@ -131,18 +171,38 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleSavePromotion = async (productId: string, promoData: any) => {
-    // Implementar si tienes endpoint de promociones
-    Alert.alert("Info", "Funcionalidad pendiente en backend.");
-    setIsPromoteModalVisible(false);
+  const handleSavePromotion = async (productId: string, promoData: any, existingPromoId?: number) => {
+    // Si existingPromoId viene del modal, se lo pasamos al repositorio
+    // Si es undefined, el repositorio hará un POST (Crear)
+    // Si es número, hará un PATCH (Actualizar)
+    const res = await DataRepository.savePromotion(Number(productId), promoData, existingPromoId);
+    
+    if (res.success) {
+      setIsPromoteModalVisible(false);
+      loadProducts(); // Recargamos para ver el precio tachado
+      Alert.alert("Éxito", existingPromoId ? "Promoción actualizada." : "Promoción creada.");
+    } else {
+      // Si falla (ej: 400 Bad Request), mostramos el error
+      Alert.alert("Error", res.error || "No se pudo guardar la promoción.");
+    }
   };
 
-  const handleDeletePromotion = async (productId: string) => {
-    Alert.alert("Info", "Funcionalidad pendiente en backend.");
-    setIsPromoteModalVisible(false);
+  const handleDeletePromotion = async (promoId: string) => {
+    Alert.alert("Eliminar Promoción", "¿Quitar la oferta de este producto?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Eliminar", onPress: async () => {
+          const res = await DataRepository.deletePromotion(Number(promoId));
+          if (res.success) {
+            setIsPromoteModalVisible(false);
+            loadProducts();
+          } else {
+            Alert.alert("Error", res.error);
+          }
+      }}
+    ]);
   };
 
-  // --- RENDER ---
+  // === RENDER ===
 
   const renderAdminItem = ({ item }: { item: Platillo }) => {
     const hasPromo = !!item.promotionalPrice;
@@ -157,12 +217,13 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
 
         <View style={styles.itemTextContainer}>
           <Text style={[styles.itemTitle, !item.visible && {color: '#999'}]}>{item.title}</Text>
-          <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
-          {item.description ? (
-            <Text style={{fontSize: 10, color: '#888', marginTop: 1}} numberOfLines={2}>
-              {item.description}
-            </Text>
-          ) : null}
+          
+          {/* Mostramos Subtítulo */}
+          {item.subtitle ? <Text style={styles.itemSubtitle}>{item.subtitle}</Text> : null}
+          
+          {/* Mostramos Categoría (Pequeña) */}
+          <Text style={{fontSize: 10, color: COLORS.primary, marginBottom: 2, fontWeight:'600'}}>{item.category}</Text>
+
           <View>
              {hasPromo && <Text style={styles.oldPriceText}>${item.price}</Text>}
              <Text style={[styles.itemPrice, !item.visible && {color: '#999'}, hasPromo && { color: '#2E7D32' }]}>
@@ -188,7 +249,7 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>ComeCon Admin</Text>
+        <Text style={styles.headerTitle}>Admin Panel</Text>
         <View style={styles.headerLine} />
       </View>
 
@@ -196,7 +257,7 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
         <View style={styles.searchInputWrapper}>
           <Ionicons name="search" size={22} color={COLORS.placeholder} style={styles.searchIcon} />
           <TextInput 
-            placeholder="Buscar producto..."
+            placeholder="Buscar..."
             placeholderTextColor={COLORS.placeholder}
             style={styles.searchInput}
             value={searchQuery}
@@ -218,15 +279,15 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={<Text style={{textAlign: 'center', marginTop: 20, color: '#888'}}>No hay productos.</Text>}
+          ListEmptyComponent={<Text style={{textAlign: 'center', marginTop: 20, color: '#888'}}>Sin productos.</Text>}
         />
       )}
 
-      {/* MODALES CONECTADOS */}
+      {/* MODALES */}
       <AddProductModal 
         visible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}
-        onSave={handleAddProduct} 
+        onSave={handleAddProduct}
       />
 
       <EditProductModal

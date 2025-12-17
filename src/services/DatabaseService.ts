@@ -46,6 +46,7 @@ class DatabaseService {
       CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY,
         title TEXT NOT NULL,
+        subtitle TEXT,
         description TEXT,
         price REAL NOT NULL,
         image TEXT,
@@ -74,6 +75,9 @@ class DatabaseService {
         description TEXT,
         image TEXT,
         discountPrice REAL,
+        startDate TEXT,
+        endDate TEXT,
+        visible INTEGER DEFAULT 1, 
         FOREIGN KEY(productId) REFERENCES products(id)
       );
     `);
@@ -202,54 +206,55 @@ class DatabaseService {
     
     try {
       await db.withTransactionAsync(async () => {
-        // Limpiamos promociones (hijos)
         await db.runAsync('DELETE FROM promotions');
         
-        // NO borramos products para no romper el carrito. Usamos UPSERT.
-        const activeIds: number[] = [];
-
         for (const p of apiProducts) {
-          activeIds.push(p.id);
           const title = p.name || p.title || 'Sin Título'; 
+          const subtitle = p.subtitle || ''; 
           const image = p.image || ''; 
           
           let promoPrice = null;
           let promoId = null;
           
+          // Datos de la promo (ahora vienen SIEMPRE, activos o no)
           if (p.promotion) {
-             promoPrice = parseFloat(p.promotion.discount_price);
+             // Solo mostramos precio tachado en el Home si la promo es VISIBLE
+             if (p.promotion.visible) {
+                promoPrice = parseFloat(p.promotion.discount_price);
+             }
              promoId = p.promotion.id;
           }
 
-          // A) Insertar/Actualizar Producto
+          // A) Upsert Producto
           await db.runAsync(
-            `INSERT OR REPLACE INTO products (id, title, description, price, image, category, promotionalPrice, visible) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT OR REPLACE INTO products (id, title, subtitle, description, price, image, category, promotionalPrice, visible) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-              p.id, title, p.description || '', parseFloat(p.price), image, 
+              p.id, title, subtitle, p.description || '', parseFloat(p.price), image, 
               p.category || 'General', promoPrice, p.visible !== false ? 1 : 0
             ]
           );
 
-          // B) Insertar Promoción
+          // B) Insertar Promoción (Guardamos su estado real)
           if (p.promotion) {
              await db.runAsync(
-               `INSERT OR REPLACE INTO promotions (id, productId, description, image, discountPrice)
-                VALUES (?, ?, ?, ?, ?)`,
+               `INSERT OR REPLACE INTO promotions (id, productId, description, image, discountPrice, startDate, endDate, visible)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                [
-                 promoId, p.id, 
-                 p.promotion.description || '¡Oferta especial!',
+                 promoId, 
+                 p.id, 
+                 p.promotion.description || 'Oferta', 
                  p.promotion.image || image, 
-                 promoPrice
+                 parseFloat(p.promotion.discount_price),
+                 p.promotion.start_date || '',
+                 p.promotion.end_date || '',
+                 p.promotion.visible ? 1 : 0 // ✅ Guardamos si está activa o pausada
                ]
              );
           }
         }
-        
-        // Opcional: Borrar productos que ya no existen en backend (si no están en carrito)
-        // Por seguridad en SQLite simple, omitimos el borrado complejo para evitar errores de FK
       });
-      console.log(`✅ [SQLite] Sync Upsert completo.`);
+      console.log(`✅ [SQLite] Sync completo.`);
     } catch (error) {
       console.error("❌ Error syncProducts:", error);
     }
@@ -268,25 +273,24 @@ class DatabaseService {
   async getPromotionsWithProduct(): Promise<any[]> {
     if (!this.db) return [];
     try {
+      // ✅ FILTRO CLAVE: Solo mostrar promos visibles al cliente
       const query = `
         SELECT pr.id as promoId, pr.description as promoDesc, pr.image as promoImage, pr.discountPrice,
           p.id, p.title, p.description, p.price, p.image, p.category, p.promotionalPrice, p.visible
-        FROM promotions pr JOIN products p ON pr.productId = p.id
+        FROM promotions pr 
+        JOIN products p ON pr.productId = p.id
+        WHERE pr.visible = 1 
       `;
       const results = await this.db.getAllAsync(query);
+      // ... mapeo igual ...
       return results.map((row: any) => ({
         id: row.promoId,
         description: row.promoDesc,
         image: row.promoImage,
         discountPrice: row.discountPrice,
         product: {
-          id: row.id,
-          title: row.title,
-          description: row.description,
-          price: row.price,
-          image: row.image,
-          category: row.category,
-          promotionalPrice: row.promotionalPrice
+          id: row.id, title: row.title, description: row.description, price: row.price,
+          image: row.image, category: row.category, promotionalPrice: row.promotionalPrice
         }
       }));
     } catch (e) { return []; }
@@ -405,23 +409,49 @@ class DatabaseService {
   async getAllProductsAdmin(): Promise<any[]> {
     if (!this.db) return [];
     try {
-      const products = await this.db.getAllAsync('SELECT * FROM products ORDER BY id DESC');
+      // Hacemos un LEFT JOIN para saber si tiene promo (activa o pausada)
+      const query = `
+        SELECT p.*, pr.id as promoId, pr.discountPrice as promoPriceAdmin, pr.visible as promoVisible
+        FROM products p
+        LEFT JOIN promotions pr ON p.id = pr.productId
+        ORDER BY p.id DESC
+      `;
+      const products = await this.db.getAllAsync(query);
       
       return products.map((p: any) => ({
         ...p,
-        description: p.description || '', // Aseguramos string vacío si es null
+        subtitle: p.subtitle || '',
+        description: p.description || '',
         visible: p.visible === 1,
         price: p.price.toString(),
-        promotionalPrice: p.promotionalPrice ? p.promotionalPrice.toString() : undefined
+        // Para el Admin, mostramos el precio promo si existe registro, aunque esté pausado
+        promotionalPrice: p.promoPriceAdmin ? p.promoPriceAdmin.toString() : undefined,
+        promotionId: p.promoId, // Para que el modal sepa editar
+        isPromoActive: p.promoVisible === 1 // Para pintar UI diferente si quieres
       }));
     } catch (error) { return []; }
   }
+
+  
 
   // Eliminar producto localmente
   async deleteProduct(id: number): Promise<void> {
     if (!this.db) return;
     await this.db.runAsync('DELETE FROM promotions WHERE productId = ?', [id]);
     await this.db.runAsync('DELETE FROM products WHERE id = ?', [id]);
+  }
+
+
+
+  async getPromotionByProductId(productId: number): Promise<any | null> {
+    if (!this.db) return null;
+    try {
+      // Buscamos la promoción ligada al producto
+      return await this.db.getFirstAsync('SELECT * FROM promotions WHERE productId = ?', [productId]);
+    } catch (error) {
+      console.error("Error getPromotionByProductId:", error);
+      return null;
+    }
   }
 }
 

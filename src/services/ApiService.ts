@@ -255,4 +255,43 @@ export const ApiService = {
     } catch (e) { return { success: false, error: "Error de conexión" }; }
   },
 
+  // === PROMOCIONES ===
+  
+  createPromotion: async (promoData: any) => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_URL}/promotions/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(promoData),
+      });
+      const data = await response.json();
+      if (response.ok) return { success: true, data };
+      return { success: false, error: "No se pudo crear la promoción" };
+    } catch (e) { return { success: false, error: "Error de conexión" }; }
+  },
+
+  updatePromotion: async (id: number, promoData: any) => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_URL}/promotions/${id}/`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(promoData),
+      });
+      const data = await response.json();
+      if (response.ok) return { success: true, data };
+      return { success: false, error: "No se pudo actualizar la promoción" };
+    } catch (e) { return { success: false, error: "Error de conexión" }; }
+  },
+
+  deletePromotion: async (id: number) => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_URL}/promotions/${id}/`, { method: 'DELETE', headers });
+      if (response.ok) return { success: true };
+      return { success: false, error: "No se pudo eliminar" };
+    } catch (e) { return { success: false, error: "Error de conexión" }; }
+  },
+
 };

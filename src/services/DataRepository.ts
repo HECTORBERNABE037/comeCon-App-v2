@@ -232,8 +232,6 @@ export const DataRepository = {
     formData.append('description', data.description || '');
     formData.append('price', data.price.toString());
     formData.append('category', data.category || 'General');
-    
-    // ✅ CORRECCIÓN: Agregar el subtítulo al FormData
     formData.append('subtitle', data.subtitle || ''); 
 
     formData.append('visible', data.visible !== false ? 'true' : 'false'); 
@@ -275,5 +273,53 @@ export const DataRepository = {
      const formData = new FormData();
      formData.append('visible', (!currentVisible).toString());
      return await ApiService.updateProduct(id, formData);
-  }
+  },
+
+  // === GESTIÓN DE PROMOCIONES ===
+
+  savePromotion: async (productId: number, promoData: any, existingPromoId?: number) => {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) return { success: false, error: "Requiere internet" };
+
+    // Payload EXACTO para Django
+    const payload = {
+      product: productId, // Debe ser el ID del producto
+      discount_price: parseFloat(promoData.promotionalPrice), // Convertir a número
+      start_date: promoData.startDate, // YYYY-MM-DD
+      end_date: promoData.endDate,     // YYYY-MM-DD
+      description: 'Oferta Especial',  // Opcional, pero bueno tenerlo
+      visible: promoData.visible       // ✅ IMPORTANTE: Booleano
+    };
+
+    console.log("Enviando Promo:", payload); // Para depurar
+
+    let res;
+    // Si existe ID de promo, usamos PATCH (update), sino POST (create)
+    if (existingPromoId) {
+      res = await ApiService.updatePromotion(existingPromoId, payload);
+    } else {
+      res = await ApiService.createPromotion(payload);
+    }
+
+    if (res.success) {
+      // Sincronizar para ver cambios en la app
+      const productsRes = await ApiService.getProducts();
+      if (productsRes.success) await DatabaseService.syncProducts(productsRes.data);
+    }
+    return res;
+  },
+
+  deletePromotion: async (promoId: number) => {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) return { success: false, error: "Requiere internet" };
+
+    const res = await ApiService.deletePromotion(promoId);
+    
+    if (res.success) {
+      // Actualizar lista local para quitar la promo
+      const productsRes = await ApiService.getProducts();
+      if (productsRes.success) await DatabaseService.syncProducts(productsRes.data);
+    }
+    return res;
+  },
 };
