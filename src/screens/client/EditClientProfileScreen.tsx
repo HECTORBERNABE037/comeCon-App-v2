@@ -8,24 +8,25 @@ import {
   TouchableOpacity, 
   ScrollView, 
   StatusBar,
-  Platform,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView 
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList, COLORS, FONT_SIZES, ClientProfileFormData } from '../../../types';
-import DatabaseService from '../../services/DatabaseService';
+import { DataRepository } from '../../services/DataRepository'; // <--- Usamos Repositorio
 import { useAuth } from '../../context/AuthContext';
 
 type Props = StackScreenProps<RootStackParamList, 'EditClientProfile'>;
 
-export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
+const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
   
   const { user, refreshUser } = useAuth(); 
   const [loading, setLoading] = useState(false);
 
+  // Estado del formulario
   const [formData, setFormData] = useState<ClientProfileFormData>({
     fullName: '',
     nickname: '',
@@ -36,13 +37,14 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
     address: ''
   });
 
+  // Cargar datos actuales del usuario al abrir
   useEffect(() => {
     if (user) {
       setFormData({
         fullName: user.nombre || '',
         nickname: user.nickname || '',
-        email: user.email || '',
-        phone: user.telefono || '',
+        email: user.email || '', // Email suele ser solo lectura
+        phone: user.phone || '',
         gender: user.gender || '',
         country: user.country || '',
         address: user.address || ''
@@ -50,32 +52,39 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [user]);
 
-  const handleChange = (field: keyof ClientProfileFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleChange = (key: keyof ClientProfileFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleUpdate = async () => {
-    if (!formData.fullName.trim()) {
-      Alert.alert("Error", "El nombre es obligatorio");
-      return;
-    }
+  const handleSave = async () => {
     if (!user) return;
-
     setLoading(true);
 
     try {
-      const success = await DatabaseService.updateUserProfile(user.email, formData);
-      
-      if (success) {
-        await refreshUser(); 
-        Alert.alert("Éxito", "Información actualizada correctamente", [
+      // Preparamos payload para Django (snake_case si es necesario, pero ApiService/Serializer lo manejan)
+      // Nota: Tu UserSerializer en Django espera 'name', 'phone', etc.
+      const payload = {
+        name: formData.fullName,
+        nickname: formData.nickname,
+        phone: formData.phone,
+        gender: formData.gender,
+        country: formData.country,
+        address: formData.address
+        // No enviamos email porque es el identificador único y suele ser inmutable
+      };
+
+      const result = await DataRepository.updateProfile(payload);
+
+      if (result.success) {
+        await refreshUser(); // Recargar datos en la app
+        Alert.alert("¡Éxito!", "Perfil actualizado correctamente.", [
           { text: "OK", onPress: () => navigation.goBack() }
         ]);
       } else {
-        Alert.alert("Error", "No se pudo actualizar el perfil.");
+        Alert.alert("Error", result.error || "No se pudo actualizar.");
       }
     } catch (error) {
-      Alert.alert("Error", "Ocurrió un problema inesperado.");
+      Alert.alert("Error", "Ocurrió un problema de conexión.");
     } finally {
       setLoading(false);
     }
@@ -86,94 +95,98 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor="#F2F2F2" />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={28} color={COLORS.text} />
         </TouchableOpacity>
-        <View>
-            <Text style={styles.headerTitle}>Edita Perfil</Text>
-            <View style={styles.headerUnderline} />
-        </View>
-        <View style={{ width: 28 }} /> 
+        <Text style={styles.headerTitle}>Editar Perfil</Text>
+        <View style={{ width: 28 }} />
       </View>
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           
-          <Text style={styles.sectionTitle}>Editar Información</Text>
+          <Text style={styles.sectionTitle}>Información Personal</Text>
 
-          <Text style={styles.label}>Nombre Completo</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.fullName}
-            onChangeText={(text) => handleChange('fullName', text)}
-            editable={!loading}
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Nombre Completo</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.fullName}
+              onChangeText={(t) => handleChange('fullName', t)}
+              placeholder="Tu nombre"
+            />
+          </View>
 
-          <Text style={styles.label}>Nickname</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.nickname}
-            onChangeText={(text) => handleChange('nickname', text)}
-            editable={!loading}
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Apodo (Nickname)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.nickname}
+              onChangeText={(t) => handleChange('nickname', t)}
+              placeholder="Cómo te dicen"
+            />
+          </View>
 
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={[styles.input, styles.readOnlyInput]}
-            value={formData.email}
-            editable={false}
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Correo Electrónico</Text>
+            <TextInput
+              style={[styles.input, styles.readOnlyInput]}
+              value={formData.email}
+              editable={false} // Bloqueado
+            />
+          </View>
 
-          <Text style={styles.label}>Telefono</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.phone}
-            onChangeText={(text) => handleChange('phone', text)}
-            keyboardType="phone-pad"
-            editable={!loading}
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Teléfono</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.phone}
+              onChangeText={(t) => handleChange('phone', t)}
+              keyboardType="phone-pad"
+              placeholder="Tu número"
+            />
+          </View>
 
           <View style={styles.rowContainer}>
-            <View style={styles.halfInputContainer}>
-              <Text style={styles.label}>Genero</Text>
+            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+              <Text style={styles.label}>Género</Text>
               <TextInput
                 style={styles.input}
                 value={formData.gender}
-                onChangeText={(text) => handleChange('gender', text)}
-                editable={!loading}
+                onChangeText={(t) => handleChange('gender', t)}
+                placeholder="Ej. M/F"
               />
             </View>
-            <View style={[styles.halfInputContainer, { marginLeft: 15 }]}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>País</Text>
               <TextInput
                 style={styles.input}
                 value={formData.country}
-                onChangeText={(text) => handleChange('country', text)}
-                editable={!loading}
+                onChangeText={(t) => handleChange('country', t)}
+                placeholder="México"
               />
             </View>
           </View>
 
-          <Text style={styles.label}>Direccion</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.address}
-            onChangeText={(text) => handleChange('address', text)}
-            editable={!loading}
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Dirección de Entrega</Text>
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+              value={formData.address}
+              onChangeText={(t) => handleChange('address', t)}
+              placeholder="Calle, Número, Colonia..."
+              multiline
+            />
+          </View>
 
-          <TouchableOpacity 
-            style={[styles.updateButton, loading && { opacity: 0.7 }]} 
-            onPress={handleUpdate}
-            disabled={loading}
-          >
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
             {loading ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.updateButtonText}>ACTUALIZAR</Text>
+              <Text style={styles.saveButtonText}>GUARDAR CAMBIOS</Text>
             )}
           </TouchableOpacity>
 
@@ -184,89 +197,18 @@ export const EditClientProfileScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F2',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 40 : 10,
-    paddingBottom: 10,
-  },
-  backButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontSize: FONT_SIZES.large,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    textAlign: 'center',
-  },
-  headerUnderline: {
-    height: 3,
-    backgroundColor: '#F57C00', 
-    width: '100%',
-    marginTop: 2,
-  },
-  scrollContent: {
-    paddingHorizontal: 25,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.xlarge,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  label: {
-    fontSize: FONT_SIZES.medium,
-    color: COLORS.text,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  input: {
-    backgroundColor: COLORS.white,
-    borderRadius: 10,
-    height: 50,
-    paddingHorizontal: 15,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    fontSize: FONT_SIZES.medium,
-    color: COLORS.text,
-  },
-  readOnlyInput: {
-    backgroundColor: '#EAEAEA',
-    color: COLORS.textSecondary,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  halfInputContainer: {
-    flex: 1,
-  },
-  updateButton: {
-    backgroundColor: COLORS.primary, 
-    height: 55,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 30,
-    shadowColor: '#F57C00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  updateButtonText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.large,
-    fontWeight: 'bold',
-  }
+  container: { flex: 1, backgroundColor: '#F2F2F2' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 },
+  headerTitle: { fontSize: FONT_SIZES.large, fontWeight: 'bold', color: COLORS.text },
+  scrollContent: { padding: 25, paddingBottom: 50 },
+  sectionTitle: { fontSize: FONT_SIZES.large, fontWeight: 'bold', color: COLORS.primary, marginBottom: 20, textAlign: 'center' },
+  inputGroup: { marginBottom: 15 },
+  label: { fontSize: FONT_SIZES.medium, color: COLORS.text, marginBottom: 8, fontWeight: '500' },
+  input: { backgroundColor: COLORS.white, borderRadius: 10, height: 50, paddingHorizontal: 15, borderWidth: 1, borderColor: '#E0E0E0', fontSize: FONT_SIZES.medium, color: COLORS.text },
+  readOnlyInput: { backgroundColor: '#EAEAEA', color: COLORS.textSecondary },
+  rowContainer: { flexDirection: 'row', justifyContent: 'space-between' },
+  saveButton: { backgroundColor: COLORS.primary, height: 55, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 20, elevation: 3, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
+  saveButtonText: { color: COLORS.white, fontSize: FONT_SIZES.large, fontWeight: 'bold' }
 });
+
+export default EditClientProfileScreen;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar, Alert, ActivityIndicator
 } from 'react-native';
@@ -8,26 +8,29 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONT_SIZES, RootStackParamList, CartItem } from '../../../types';
 import DatabaseService from '../../services/DatabaseService';
 import { useAuth } from '../../context/AuthContext';
+import { DataRepository } from '../../services/DataRepository';
+import { useCart } from '../../context/CartContext';
 
 type Props = StackScreenProps<RootStackParamList, 'Checkout'>;
 
-export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
+const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
+  const { refreshCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  
-  // Estado para tarjetas y selección
   const [savedCards, setSavedCards] = useState<any[]>([]);
-  const [selectedPaymentId, setSelectedPaymentId] = useState<string>('cash'); // 'cash' o el ID de la tarjeta
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string>('cash');
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       const loadData = async () => {
         if (user) {
+          // 1. Carrito viene de SQLite (Offline-First persistence)
           const items = await DatabaseService.getCartItems(Number(user.id));
           setCartItems(items);
           
-          const cards = await DatabaseService.getCards(Number(user.id));
+          // 2. Tarjetas vienen de la API (Online Security)
+          const cards = await DataRepository.getCards(Number(user.id));
           setSavedCards(cards);
         }
       };
@@ -35,7 +38,10 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
     }, [user])
   );
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+  const subtotal = cartItems.reduce((sum, item) => {
+     const price = item.promotionalPrice ? parseFloat(item.promotionalPrice) : parseFloat(item.price);
+     return sum + (price * item.quantity);
+  }, 0);
   const shipping = 20.00;
   const total = subtotal + shipping;
 
@@ -43,8 +49,8 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
     Alert.alert("Eliminar", "¿Borrar esta tarjeta?", [
       { text: "Cancelar", style: "cancel" },
       { text: "Sí", onPress: async () => {
-          await DatabaseService.deleteCard(cardId);
-          const cards = await DatabaseService.getCards(Number(user?.id));
+          await DataRepository.deleteCard(cardId); // Online delete
+          const cards = await DataRepository.getCards(Number(user?.id)); // Refresh online
           setSavedCards(cards);
           if(selectedPaymentId === cardId.toString()) setSelectedPaymentId('cash');
       }}
@@ -56,26 +62,40 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
 
     try {
-      let paymentDetails = 'Pago en Efectivo';
+      let paymentMethod = 'Efectivo';
       if (selectedPaymentId !== 'cash') {
         const card = savedCards.find(c => c.id.toString() === selectedPaymentId);
-        paymentDetails = card ? `Tarjeta ${card.type} terminada en ${card.lastFour}` : 'Tarjeta';
+        paymentMethod = card ? `Tarjeta ${card.type} •••• ${card.lastFour}` : 'Tarjeta';
       }
       
-      const success = await DatabaseService.createOrderFromCart(Number(user.id), total, paymentDetails);
+      // === PROCESAR ORDEN ONLINE ===
+      const result = await DataRepository.createOrder({
+        userId: user.id,
+        items: cartItems,
+        total: total,
+        paymentMethod: paymentMethod,
+        address: user.address || "Dirección registrada"
+      });
 
-      if (success) {
-        Alert.alert("¡Pedido Realizado!", "Tu orden ha sido enviada a cocina.", [
+      if (result.success) {
+        // Limpiar carrito local solo si el servidor confirmó la orden
+        await DatabaseService.clearCart(Number(user.id));
+        await refreshCart();
+
+        Alert.alert("¡Pedido Exitoso!", "Tu orden ha sido enviada a cocina.", [
           { 
             text: "Ver Estado", 
-            onPress: () => navigation.navigate('ClientTabsNavigator', { screen: 'ClientOrderTrackingTab' } as any)
+            onPress: () => navigation.reset({
+              index: 0,
+              routes: [{ name: 'ClientRoot' }] // Te lleva al inicio limpio
+            })
           } 
         ]);
       } else {
-        Alert.alert("Error", "No se pudo procesar el pedido.");
+        Alert.alert("Error", result.error || "No se pudo crear la orden.");
       }
     } catch (error) {
-      Alert.alert("Error", "Ocurrió un problema de conexión.");
+      Alert.alert("Error", "Fallo de conexión crítico.");
     } finally {
       setLoading(false);
     }
@@ -181,7 +201,7 @@ export const CheckoutScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F2' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 30 },
   headerTitle: { fontSize: FONT_SIZES.large, fontWeight: 'bold' },
   content: { paddingHorizontal: 20, paddingBottom: 220 },
   sectionCard: { backgroundColor: COLORS.white, borderRadius: 15, padding: 15, marginBottom: 15 },
@@ -210,3 +230,5 @@ const styles = StyleSheet.create({
   payButton: { backgroundColor: COLORS.primary, padding: 15, borderRadius: 12, alignItems: 'center' },
   payText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });
+
+export default CheckoutScreen;

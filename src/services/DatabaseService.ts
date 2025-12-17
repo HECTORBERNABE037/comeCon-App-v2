@@ -83,44 +83,67 @@ class DatabaseService {
   // MÉTODOS DE USUARIO (AUTH)
   // ==========================================
 
-  async syncUser(apiUser: any, passwordInput: string): Promise<void> {
-    if (!this.db) return;
-    const db = this.db; // <--- Referencia local segura
+  // async syncUser(apiUser: any, passwordInput: string): Promise<void> {
+  //   if (!this.db) return;
+  //   const db = this.db;
     
-    try {
-      const existing = await db.getFirstAsync('SELECT id FROM users WHERE email = ?', [apiUser.email]);
+  //   try {
+  //     const existing = await db.getFirstAsync('SELECT id FROM users WHERE email = ?', [apiUser.email]);
 
-      const role = apiUser.role || 'cliente';
-      const name = apiUser.name || '';
-      const nickname = apiUser.nickname || '';
-      const phone = apiUser.phone || '';
-      const image = apiUser.image || ''; 
-      const userId = apiUser.id; // ID que viene de Django
+  //     const role = apiUser.role || 'cliente';
+  //     const name = apiUser.name || '';
+  //     const nickname = apiUser.nickname || '';
+  //     const phone = apiUser.phone || '';
+  //     const image = apiUser.image || ''; 
+      
+  //     // ✅ AGREGAMOS ESTOS CAMPOS QUE FALTABAN:
+  //     const address = apiUser.address || ''; 
+  //     const gender = apiUser.gender || '';
+  //     const country = apiUser.country || '';
 
-      if (existing) {
-        await db.runAsync(
-          `UPDATE users SET id=?, name=?, nickname=?, role=?, password=?, phone=?, image=? WHERE email=?`,
-          [userId, name, nickname, role, passwordInput, phone, image, apiUser.email]
-        );
-      } else {
-        await db.runAsync(
-          `INSERT INTO users (id, email, password, name, nickname, role, phone, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [userId, apiUser.email, passwordInput, name, nickname, role, phone, image]
-        );
-      }
-      console.log(`💾 [SQLite] Usuario ${apiUser.email} sincronizado.`);
-    } catch (error) {
-      console.error("❌ [SQLite] Error syncUser:", error);
-    }
-  }
+  //     const userId = apiUser.id; 
+
+  //     if (existing) {
+  //       // Actualizamos INCLUYENDO address, gender y country
+  //       await db.runAsync(
+  //         `UPDATE users SET id=?, name=?, nickname=?, role=?, password=?, phone=?, image=?, address=?, gender=?, country=? WHERE email=?`,
+  //         [userId, name, nickname, role, passwordInput, phone, image, address, gender, country, apiUser.email]
+  //       );
+  //     } else {
+  //       // Insertamos INCLUYENDO address, gender y country
+  //       await db.runAsync(
+  //         `INSERT INTO users (id, email, password, name, nickname, role, phone, image, address, gender, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  //         [userId, apiUser.email, passwordInput, name, nickname, role, phone, image, address, gender, country]
+  //       );
+  //     }
+  //     console.log(`💾 [SQLite] Usuario ${apiUser.email} sincronizado con dirección.`);
+  //   } catch (error) {
+  //     console.error("❌ [SQLite] Error syncUser:", error);
+  //   }
+  // }
 
   async getLocalUser(email: string): Promise<any | null> {
     if (!this.db) return null;
+    return await this.db.getFirstAsync('SELECT * FROM users WHERE email = ?', [email]);
+  }
+  
+  async syncUser(apiUser: any, passwordInput: string): Promise<void> {
+    if (!this.db) return;
+    const db = this.db;
     try {
-      return await this.db.getFirstAsync('SELECT * FROM users WHERE email = ?', [email]);
-    } catch (error) {
-      return null;
-    }
+      const existing = await db.getFirstAsync('SELECT id FROM users WHERE email = ?', [apiUser.email]);
+      const params = [
+          apiUser.id, apiUser.name||'', apiUser.nickname||'', apiUser.role||'cliente', passwordInput,
+          apiUser.phone||'', apiUser.image||'', apiUser.address||'', apiUser.gender||'', apiUser.country||'',
+          apiUser.allow_notifications?1:0, apiUser.allow_camera?1:0, apiUser.email
+      ];
+      if (existing) {
+        await db.runAsync(`UPDATE users SET id=?, name=?, nickname=?, role=?, password=?, phone=?, image=?, address=?, gender=?, country=?, allowNotifications=?, allowCamera=? WHERE email=?`, params);
+      } else {
+        const insertParams = [params[12], params[4], params[1], params[2], params[3], params[5], params[6], params[7], params[8], params[9], params[10], params[11], params[0]]; 
+        await db.runAsync(`INSERT INTO users (email, password, name, nickname, role, phone, image, address, gender, country, allowNotifications, allowCamera, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, insertParams);
+      }
+    } catch (e) { console.error("SyncUser Error", e); }
   }
 
   async checkLocalCredentials(email: string, password: string): Promise<any | null> {
@@ -179,114 +202,94 @@ class DatabaseService {
     
     try {
       await db.withTransactionAsync(async () => {
-        // Limpiamos tablas para evitar datos viejos
+        // Limpiamos promociones (hijos)
         await db.runAsync('DELETE FROM promotions');
-        await db.runAsync('DELETE FROM products');
+        
+        // NO borramos products para no romper el carrito. Usamos UPSERT.
+        const activeIds: number[] = [];
 
         for (const p of apiProducts) {
+          activeIds.push(p.id);
           const title = p.name || p.title || 'Sin Título'; 
           const image = p.image || ''; 
           
-          // DETECTAR PROMOCIÓN
           let promoPrice = null;
           let promoId = null;
           
-          // Si el backend manda "promotion": { ... }
           if (p.promotion) {
              promoPrice = parseFloat(p.promotion.discount_price);
              promoId = p.promotion.id;
+          }
 
-             // Guardamos en la tabla de Banners de Promociones
+          // A) Insertar/Actualizar Producto
+          await db.runAsync(
+            `INSERT OR REPLACE INTO products (id, title, description, price, image, category, promotionalPrice, visible) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              p.id, title, p.description || '', parseFloat(p.price), image, 
+              p.category || 'General', promoPrice, p.visible !== false ? 1 : 0
+            ]
+          );
+
+          // B) Insertar Promoción
+          if (p.promotion) {
              await db.runAsync(
-               `INSERT INTO promotions (id, productId, description, image, discountPrice)
+               `INSERT OR REPLACE INTO promotions (id, productId, description, image, discountPrice)
                 VALUES (?, ?, ?, ?, ?)`,
                [
-                 promoId,
-                 p.id,
+                 promoId, p.id, 
                  p.promotion.description || '¡Oferta especial!',
-                 p.promotion.image || image, // Si la promo no tiene imagen, usa la del producto
+                 p.promotion.image || image, 
                  promoPrice
                ]
              );
           }
-
-          // Guardamos el Producto (con su precio promocional ya calculado en la columna)
-          await db.runAsync(
-            `INSERT INTO products (id, title, description, price, image, category, promotionalPrice, visible) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              p.id, 
-              title, 
-              p.description || '', 
-              parseFloat(p.price), 
-              image, 
-              p.category || 'General', 
-              promoPrice, // Aquí guardamos el precio oferta (o null)
-              p.is_active !== false ? 1 : 0
-            ]
-          );
         }
+        
+        // Opcional: Borrar productos que ya no existen en backend (si no están en carrito)
+        // Por seguridad en SQLite simple, omitimos el borrado complejo para evitar errores de FK
       });
-      console.log(`✅ [SQLite] Sincronización completa: Productos y Promociones.`);
+      console.log(`✅ [SQLite] Sync Upsert completo.`);
     } catch (error) {
       console.error("❌ Error syncProducts:", error);
     }
   }
 
-  //obtener productos
+  // Cliente: Solo visibles
   async getProducts(): Promise<any[]> {
     if (!this.db) return [];
     try {
-      // Devolver productos visibles
       return await this.db.getAllAsync('SELECT * FROM products WHERE visible = 1');
-    } catch (error) {
-      console.error("Error getProducts:", error);
-      return [];
-    }
+    } catch (error) { return []; }
   }
+  
 
   //obtener promociones
-  async getPromotions(): Promise<any[]> {
-    if (!this.db) return [];
-    try {
-      return await this.db.getAllAsync('SELECT * FROM promotions');
-    } catch (e) { return []; }
-  }
-
   async getPromotionsWithProduct(): Promise<any[]> {
     if (!this.db) return [];
     try {
-      // Unimos la tabla promociones con productos para tener el objeto completo para navegar
       const query = `
-        SELECT 
-          pr.id as promoId, pr.description as promoDesc, pr.image as promoImage, pr.discountPrice,
+        SELECT pr.id as promoId, pr.description as promoDesc, pr.image as promoImage, pr.discountPrice,
           p.id, p.title, p.description, p.price, p.image, p.category, p.promotionalPrice, p.visible
-        FROM promotions pr
-        JOIN products p ON pr.productId = p.id
+        FROM promotions pr JOIN products p ON pr.productId = p.id
       `;
       const results = await this.db.getAllAsync(query);
-      
-      // Formateamos para que sea fácil de usar en la UI
       return results.map((row: any) => ({
         id: row.promoId,
         description: row.promoDesc,
         image: row.promoImage,
         discountPrice: row.discountPrice,
-        // Reconstruimos el objeto 'product' completo para la navegación
         product: {
           id: row.id,
           title: row.title,
           description: row.description,
           price: row.price,
-          image: row.image, // Ojo: Aquí usará la imagen del producto si la promo no tuviera, pero la query prioriza
+          image: row.image,
           category: row.category,
           promotionalPrice: row.promotionalPrice
         }
       }));
-    } catch (e) {
-      console.error("Error getPromotionsWithProduct", e);
-      return [];
-    }
+    } catch (e) { return []; }
   }
 
   // ==========================================
@@ -367,6 +370,61 @@ class DatabaseService {
     if (!this.db) return;
     await this.db.runAsync('DELETE FROM cart WHERE userId = ?', [userId]);
   }
+
+  // Actualiza datos parciales del usuario (ej: Settings o Perfil) 
+  async updateLocalUser(apiUser: any): Promise<void> {
+    if (!this.db) return;
+    try {
+        // Mapeo de campos API (snake_case) -> DB Local
+        const name = apiUser.name || '';
+        const nickname = apiUser.nickname || '';
+        const phone = apiUser.phone || '';
+        const address = apiUser.address || '';
+        const gender = apiUser.gender || '';
+        const country = apiUser.country || '';
+        const image = apiUser.image || ''; // URL
+        
+        // Settings
+        const allowNotif = apiUser.allow_notifications ? 1 : 0;
+        const allowCam = apiUser.allow_camera ? 1 : 0;
+
+        await this.db.runAsync(
+          `UPDATE users SET 
+            name=?, nickname=?, phone=?, address=?, gender=?, country=?, image=?, 
+            allowNotifications=?, allowCamera=?
+           WHERE id=?`,
+          [name, nickname, phone, address, gender, country, image, allowNotif, allowCam, apiUser.id]
+        );
+        console.log("✅ Perfil actualizado localmente desde API");
+    } catch (error) {
+        console.error("❌ Error updateLocalUser:", error);
+    }
+  }
+
+  // Obtener TODOS los productos (Para Admin)
+  async getAllProductsAdmin(): Promise<any[]> {
+    if (!this.db) return [];
+    try {
+      const products = await this.db.getAllAsync('SELECT * FROM products ORDER BY id DESC');
+      
+      return products.map((p: any) => ({
+        ...p,
+        description: p.description || '', // Aseguramos string vacío si es null
+        visible: p.visible === 1,
+        price: p.price.toString(),
+        promotionalPrice: p.promotionalPrice ? p.promotionalPrice.toString() : undefined
+      }));
+    } catch (error) { return []; }
+  }
+
+  // Eliminar producto localmente
+  async deleteProduct(id: number): Promise<void> {
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM promotions WHERE productId = ?', [id]);
+    await this.db.runAsync('DELETE FROM products WHERE id = ?', [id]);
+  }
 }
+
+
 
 export default new DatabaseService();

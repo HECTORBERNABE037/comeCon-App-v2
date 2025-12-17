@@ -108,6 +108,7 @@ interface ProductBase extends BaseEntity {
 
 export interface Platillo extends ProductBase {
   oldPrice?: string;
+  category?: string;
   promotionalPrice?: string;
   description?: string;
 }
@@ -133,6 +134,7 @@ export interface Order extends ProductBase {
 export interface ProductFormData {
   title: string;
   subtitle: string;
+  category?:string;
   price: string;
   description: string;
   visible?: boolean;

@@ -10,11 +10,11 @@ interface AuthContextType {
   login: (data: LoginFormData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
+  refreshUser: () => Promise<void>; // <--- NUEVA FUNCIONALIDAD
 }
 
 export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-// ✅ SOLUCIÓN AL ERROR: Creamos y exportamos el hook useAuth
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -32,9 +32,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkSession();
   }, []);
 
+  // Helper para mapear el usuario de SQLite al Estado de la App
+  const mapUserToState = (localUser: any) => {
+    setUser({
+      id: localUser.id.toString(),
+      nombre: localUser.name,
+      email: localUser.email,
+      role: localUser.role as any,
+      nickname: localUser.nickname,
+      phone: localUser.phone,
+      address: localUser.address,
+      gender: localUser.gender,
+      country: localUser.country,
+      image: localUser.image ? { uri: localUser.image } : undefined,
+      // Mapeo de configuraciones (SQLite guarda 1/0, App usa true/false)
+      allowNotifications: localUser.allowNotifications === 1,
+      allowCamera: localUser.allowCamera === 1
+    });
+  };
+
   const checkSession = async () => {
     try {
-      // Nota: DatabaseService.init() ya se llama en App.tsx, no lo duplicamos aquí
       const token = await AsyncStorage.getItem('userToken');
       const email = await AsyncStorage.getItem('userEmail');
 
@@ -43,15 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const localUser = await DatabaseService.getLocalUser(email);
         
         if (localUser) {
-          setUser({
-            id: localUser.id.toString(),
-            nombre: localUser.name,
-            email: localUser.email,
-            role: localUser.role as any,
-            nickname: localUser.nickname,
-            image: localUser.image ? { uri: localUser.image } : undefined,
-            phone: localUser.phone
-          });
+          mapUserToState(localUser);
         }
       }
     } catch (e) {
@@ -61,7 +71,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // 2. LOGIN
+  // NUEVO: Refrescar datos desde la nube (Usado en Settings)
+  const refreshUser = async () => {
+    if (!user) return;
+    // No ponemos isLoading(true) global para no bloquear toda la UI, 
+    // pero podrías hacerlo si prefieres.
+    try {
+      console.log("🔄 Refrescando perfil desde la nube...");
+      // 1. Intentar bajar datos frescos del Backend -> SQLite
+      await DataRepository.syncProfile();
+      
+      // 2. Recargar desde SQLite (la fuente de verdad)
+      const localUser = await DatabaseService.getLocalUser(user.email);
+      if (localUser) {
+        mapUserToState(localUser);
+      }
+    } catch (error) {
+      console.error("Error refrescando usuario:", error);
+    }
+  };
+
   const login = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
@@ -73,15 +102,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
            await AsyncStorage.setItem('userEmail', result.user.email);
         }
 
-        setUser({
-          id: result.user.id ? result.user.id.toString() : '0',
-          nombre: result.user.name || '',
-          email: result.user.email,
-          role: result.user.role as any,
-          nickname: result.user.nickname,
-          phone: result.user.phone,
-          image: result.user.image ? { uri: result.user.image } : undefined 
-        });
+        // Al hacer login, los datos frescos ya vienen en result.user o se guardaron en SQLite
+        // Por seguridad, leemos de SQLite para usar el mismo mapeo consistente
+        const localUser = await DatabaseService.getLocalUser(result.user.email);
+        if (localUser) {
+            mapUserToState(localUser);
+        } else {
+            // Fallback si SQLite falló (raro), usamos lo que vino del login
+            setUser({
+                id: result.user.id.toString(),
+                nombre: result.user.name || '',
+                email: result.user.email,
+                role: result.user.role as any,
+                nickname: result.user.nickname,
+                phone: result.user.phone,
+                // ... otros campos básicos
+                image: undefined,
+                address: '',
+                gender: '',
+                country: '',
+                allowNotifications: true,
+                allowCamera: true
+            });
+        }
         return { success: true };
       } else {
         return { success: false, error: result.error || "Error al iniciar sesión" };
@@ -93,7 +136,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // 3. LOGOUT
   const logout = async () => {
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userEmail');
@@ -101,7 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, checkSession }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, checkSession, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

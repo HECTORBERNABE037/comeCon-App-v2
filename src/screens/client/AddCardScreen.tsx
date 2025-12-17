@@ -7,10 +7,11 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { COLORS, FONT_SIZES, RootStackParamList, CardFormData } from '../../../types';
 import DatabaseService from '../../services/DatabaseService';
 import { useAuth } from '../../context/AuthContext';
+import { DataRepository } from '../../services/DataRepository';
 
 type Props = StackScreenProps<RootStackParamList, 'AddCard'>;
 
-export const AddCardScreen: React.FC<Props> = ({ navigation }) => {
+const AddCardScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   
@@ -26,17 +27,24 @@ export const AddCardScreen: React.FC<Props> = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const result = await DatabaseService.addCard(Number(user.id), formData);
+      // ENVIAR A DJANGO
+      const result = await DataRepository.addCard({
+        user: Number(user.id), // Enviamos ID de usuario
+        last_four: formData.number.slice(-4), // Django suele guardar solo últimos 4 por seguridad, o guarda todo encriptado
+        holder_name: formData.holderName,
+        expiry_date: formData.expiryDate, // Asegúrate del formato YYYY-MM-DD
+        type: 'visa' // Detectar tipo real si puedes
+      });
       
       if (result.success) {
-        Alert.alert("Éxito", "Tarjeta guardada correctamente.", [
+        Alert.alert("Éxito", "Tarjeta guardada en tu cuenta.", [
           { text: "OK", onPress: () => navigation.goBack() }
         ]);
       } else {
-        Alert.alert("Atención", result.error || "No se pudo guardar.");
+        Alert.alert("Error", result.error || "No se pudo guardar.");
       }
     } catch (error) {
-      Alert.alert("Error", "Ocurrió un problema técnico.");
+      Alert.alert("Error", "Ocurrió un problema de conexión.");
     } finally {
       setLoading(false);
     }
@@ -141,3 +149,5 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: COLORS.primary, height: 55, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   saveText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });
+
+export default AddCardScreen;

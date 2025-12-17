@@ -14,9 +14,12 @@ import SetNewPasswordScreen from '../screens/auth/SetNewPasswordScreen';
 import {ClientTabs} from './ClientTabs';
 import {AdminTabs} from './AdminTabs';
 
-// Pantallas Comunes o Modales (Opcional, si se acceden desde ambos roles)
+// Pantallas Comunes / Cliente
 import { ProductDetailScreen } from "../screens/Product/ProducDetailsScreen";
-// Asegúrate de importar cualquier otra pantalla suelta que necesites (Checkout, etc.) si no están dentro de los Tabs.
+import CartScreen from '../screens/client/CartScreen';        
+import CheckoutScreen from '../screens/client/CheckoutScreen'; 
+import AddCardScreen from '../screens/client/AddCardScreen';
+import EditClientProfileScreen from '../screens/client/EditClientProfileScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -46,7 +49,10 @@ const StackNavigator = () => {
 
           {/* Pantallas compartidas o adicionales que no están en el TabBar pero son parte del stack de navegación */}
           <Stack.Screen name="ProductDetails" component={ProductDetailScreen} />
-          {/* Agrega aquí Checkout, OrderTracking, etc. si son pantallas fuera de los Tabs */}
+          <Stack.Screen name="Cart" component={CartScreen} />
+          <Stack.Screen name="Checkout" component={CheckoutScreen} />
+          <Stack.Screen name="AddCard" component={AddCardScreen} />
+          <Stack.Screen name="EditClientProfile" component={EditClientProfileScreen} />
         </>
       ) : (
         // ==================================================

@@ -7,13 +7,16 @@ import {
   FlatList, 
   Image, 
   StatusBar, 
-  ActivityIndicator
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  TouchableOpacity
 } from 'react-native';
 import { useFocusEffect, useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { COLORS, FONT_SIZES, Order, ClientTabParamList, RootStackParamList } from '../../../types';
-import DatabaseService from '../../services/DatabaseService';
+import { COLORS, FONT_SIZES, ClientTabParamList, RootStackParamList } from '../../../types';
+import { DataRepository } from '../../services/DataRepository';
 import { useAuth } from '../../context/AuthContext';
 
 type ClientOrderTrackingNavigationProp = CompositeNavigationProp<
@@ -21,117 +24,121 @@ type ClientOrderTrackingNavigationProp = CompositeNavigationProp<
   StackNavigationProp<RootStackParamList>
 >;
 
-const resolveImage = (imageName: string) => {
-  if (imageName?.startsWith('file://')) return { uri: imageName };
-  switch (imageName) {
-    case 'bowlFrutas': return require('../../../assets/bowlFrutas.png');
-    case 'tostadaAguacate': return require('../../../assets/tostadaAguacate.png');
-    case 'Panques': return require('../../../assets/Panques.png');
-    case 'cafePanda': return require('../../../assets/cafePanda.png');
-    default: return require('../../../assets/logoApp.png'); 
+// Helper de Imágenes
+const resolveImage = (imageSource: string | any) => {
+  if (!imageSource) return require('../../../assets/logoApp.png');
+  if (typeof imageSource === 'string' && (imageSource.startsWith('http') || imageSource.startsWith('file'))) {
+    return { uri: imageSource };
   }
+  return require('../../../assets/logoApp.png'); 
 };
 
-export const ClientOrderTrackingScreen = () => {
+const ClientOrderTrackingScreen = () => {
   const navigation = useNavigation<ClientOrderTrackingNavigationProp>();
   const { user } = useAuth();
   
-  const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadMyOrders = async () => {
+  // Cargar Órdenes del Backend
+  const loadOrders = async () => {
     if (!user) return;
-    setLoading(true);
+    
     try {
-      const data = await DatabaseService.getOrdersByUserId(Number(user.id));
-      const formattedData: Order[] = data.map(o => ({
-        ...o,
-        image: resolveImage(o.image) 
-      }));
-      setMyOrders(formattedData);
+      const result = await DataRepository.getOrders();
+      
+      if (result.success) {
+        // ✅ CORRECCIÓN AQUÍ: Usamos (result as any) para evitar el error de TypeScript
+        setOrders((result as any).data);
+      } else {
+        console.log(result.error); 
+      }
     } catch (error) {
-      console.error("Error al cargar mis órdenes", error);
+      console.error("Error loading orders:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadMyOrders();
+      setLoading(true);
+      loadOrders();
     }, [user])
   );
 
-  const renderOrderItem = ({ item }: { item: Order }) => {
-    let statusColor = COLORS.primary;
-    let statusText = "En proceso";
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadOrders();
+  };
 
-    switch (item.status) {
-      case 'completado': 
-        statusText = "Entregado"; 
-        statusColor = '#2E7D32'; 
-        break; 
-      case 'cancelado': 
-        statusText = "Cancelado"; 
-        statusColor = '#D50000'; 
-        break; 
-      case 'En proceso': 
-        statusText = "En camino"; 
-        statusColor = '#FF9800'; 
-        break;   
-      case 'Pendiente':
-        statusText = "Recibido";
-        statusColor = COLORS.textSecondary;
-        break;
-      default: 
-        statusText = item.status; 
-        statusColor = COLORS.textSecondary;
-    }
+  const renderItem = ({ item }: { item: any }) => {
+    const imageSource = require('../../../assets/logoApp.png'); 
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity 
+        style={styles.card}
+        activeOpacity={0.9}
+      >
         <View style={styles.cardHeader}>
-          <Image source={item.image} style={styles.cardImage} />
+          {/* <Image source={imageSource} style={styles.cardImage} /> */}
           <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-            <Text style={styles.cardPrice}>${item.price}</Text>
-          </View>
-          
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-            <Text style={[styles.statusText, { color: statusColor }]}>
-              {statusText}
+            <Text style={styles.cardTitle}>Orden #{item.id}</Text>
+            <Text style={styles.cardSubtitle}>
+              {new Date(item.date).toLocaleDateString()} - {item.delivery_time || item.deliveryTime || 'Por asignar'}
             </Text>
+            <Text style={styles.cardPrice}>${item.total}</Text>
+          </View>
+          <View style={[
+            styles.statusBadge, 
+            { backgroundColor: getStatusColor(item.status) }
+          ]}>
+            <Text style={styles.statusText}>{item.status}</Text>
           </View>
         </View>
-
-        <View style={styles.cardFooter}>
-          <Text style={styles.dateText}>Fecha: {item.date}</Text>
-          {item.deliveryTime && (
-            <Text style={styles.deliveryText}>
-              {item.status === 'completado' ? 'Entregado: ' : 'Estimado: '} 
-              {item.deliveryTime}
-            </Text>
-          )}
+        
+        <View style={styles.itemsSummary}>
+           {item.items?.map((prod: any, index: number) => (
+             <Text key={index} style={styles.itemText} numberOfLines={1}>
+               • {prod.quantity}x {prod.product_details || 'Producto'}
+             </Text>
+           ))}
         </View>
-      </View>
+      </TouchableOpacity>
     );
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'pendiente': return '#FF9800'; 
+      case 'en proceso': return '#2196F3'; 
+      case 'completado': return '#4CAF50'; 
+      case 'cancelado': return '#F44336'; 
+      default: return '#999';
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8F8F8"/>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8F8F8" />
       <Text style={styles.mainTitle}>Mis Pedidos</Text>
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{marginTop: 50}} />
+
+      {loading && !refreshing ? (
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
       ) : (
         <FlatList
-          data={myOrders}
-          renderItem={renderOrderItem}
-          keyExtractor={item => item.id.toString()}
+          data={orders}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
           contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={<Text style={styles.emptyText}>Aún no has realizado pedidos.</Text>}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+          }
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No tienes pedidos realizados.</Text>
+          }
         />
       )}
     </SafeAreaView>
@@ -145,14 +152,15 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: 'center', marginTop: 50, color: '#999', fontSize: FONT_SIZES.medium },
   card: { backgroundColor: COLORS.white, borderRadius: 20, padding: 15, marginBottom: 15, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  cardImage: { width: 60, height: 60, borderRadius: 30, marginRight: 15 },
+  cardImage: { width: 60, height: 60, borderRadius: 30, marginRight: 15, resizeMode: 'contain', backgroundColor: '#EEE' },
   cardInfo: { flex: 1 },
   cardTitle: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.text },
   cardSubtitle: { fontSize: FONT_SIZES.small, color: COLORS.textSecondary, marginBottom: 2 },
   cardPrice: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.primary },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  statusText: { fontSize: 10, fontWeight: 'bold' },
-  cardFooter: { borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between' },
-  dateText: { fontSize: 12, color: '#888' },
-  deliveryText: { fontSize: 12, color: COLORS.text, fontWeight: '500' }
+  statusText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  itemsSummary: { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 10 },
+  itemText: { fontSize: 12, color: '#666', marginBottom: 2 }
 });
+
+export default ClientOrderTrackingScreen;

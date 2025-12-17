@@ -1,28 +1,18 @@
 import React, { useState, useCallback } from "react";
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  Alert, 
-  TextInput,
-  Image,
-  FlatList,
-  StatusBar,
-  Platform
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, TextInput, Image, FlatList, StatusBar, Platform, ActivityIndicator, RefreshControl
 } from "react-native";
 import { useFocusEffect, CompositeNavigationProp } from "@react-navigation/native"; 
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Feather, Ionicons } from "@expo/vector-icons";
 
-import { RootStackParamList, AdminTabParamList, COLORS, FONT_SIZES, Platillo, ProductFormData } from "../../../types";
-
+import { RootStackParamList, AdminTabParamList, COLORS, FONT_SIZES, Platillo } from "../../../types";
 import { EditProductModal } from "../../components/EditProductModal";
 import { PromoteProductModal } from "../../components/PromoteProductModal";
 import { AddProductModal } from "../../components/AddProductModal"; 
-import DatabaseService from '../../services/DatabaseService';
+import { DataRepository } from '../../services/DataRepository'; 
+import { useAuth } from "../../context/AuthContext";
 import { advancedSearch } from "../../utils/searchHelper";
 
 type HomeAdminScreenNavigationProp = CompositeNavigationProp<
@@ -34,23 +24,21 @@ interface HomeAdminScreenProps {
   navigation: HomeAdminScreenNavigationProp;
 }
 
-const resolveImage = (imageName: string) => {
-  if (imageName?.startsWith('file://')) {
+const resolveImage = (imageName: string | any) => {
+  if (imageName?.uri) return { uri: imageName.uri };
+  if (typeof imageName === 'string' && (imageName.startsWith('http') || imageName.startsWith('file'))) {
     return { uri: imageName };
   }
-  switch (imageName) {
-    case 'bowlFrutas': return require('../../../assets/bowlFrutas.png');
-    case 'tostadaAguacate': return require('../../../assets/tostadaAguacate.png');
-    case 'Panques': return require('../../../assets/Panques.png');
-    case 'cafePanda': return require('../../../assets/cafePanda.png');
-    default: return require('../../../assets/logoApp.png'); 
-  }
+  return require('../../../assets/logoApp.png');
 };
 
 const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
-
+  const { user } = useAuth();
+  
   const [productList, setProductList] = useState<Platillo[]>([]); 
   const [searchQuery, setSearchQuery] = useState(""); 
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [selectedProductEdit, setSelectedProductEdit] = useState<Platillo | null>(null);
@@ -58,16 +46,20 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
   const [selectedProductPromote, setSelectedProductPromote] = useState<Platillo | null>(null);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
 
+  // Cargar Productos
   const loadProducts = async () => {
+    if (!refreshing) setLoading(true);
     try {
-      const productsFromDB = await DatabaseService.getProducts();
+      const productsFromDB = await DataRepository.getAdminProducts();
       
-      const formattedProducts: Platillo[] = productsFromDB.map(p => ({
+      const formattedProducts: Platillo[] = productsFromDB.map((p:any) => ({
         id: p.id.toString(),
         title: p.title,
-        subtitle: p.subtitle,
+        subtitle: p.subtitle || '', 
         price: p.price.toString(),
-        description: p.description,
+        description: p.description || '', 
+        category: p.category || 'General', 
+
         image: resolveImage(p.image),
         promotionalPrice: p.promotionalPrice ? p.promotionalPrice.toString() : undefined,
         visible: p.visible 
@@ -76,6 +68,9 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
       setProductList(formattedProducts);
     } catch (error) {
       console.error("Error cargando productos:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -85,140 +80,102 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
     }, [])
   );
 
-  const filteredProducts = advancedSearch(productList, searchQuery, ['title', 'subtitle']);
-
-  const openAddModal = () => {
-    setIsAddModalVisible(true);
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadProducts();
   };
 
+  const filteredProducts = advancedSearch(productList, searchQuery, ['title']);
+
+  // --- HANDLERS ---
+
   const handleAddProduct = async (newProductData: any) => {
-    try {
-      await DatabaseService.addProduct({
-        ...newProductData,
-        image: newProductData.image || 'logoApp' 
-      });
-      await loadProducts();
+    // ✅ INTEGRACIÓN: Aseguramos datos mínimos para el Backend
+    const productToSend = {
+      ...newProductData,
+      category: newProductData.category || 'General', // Default category
+      visible: true // Default visible
+    };
+
+    const res = await DataRepository.saveProduct(productToSend);
+    
+    if (res.success) {
       setIsAddModalVisible(false);
-      Alert.alert("Éxito", "Producto añadido correctamente.");
-    } catch (error) {
-      Alert.alert("Error", "No se pudo guardar el producto.");
+      loadProducts(); // Recargar la lista
+      Alert.alert("Éxito", "Producto creado correctamente.");
+    } else {
+      Alert.alert("Error", res.error || "No se pudo crear el producto.");
     }
   };
 
-  const openEditModal = (product: Platillo) => {
-    setSelectedProductEdit(product);
-    setIsEditModalVisible(true);
-  };
-
   const handleSaveProduct = async (updatedProduct: Platillo) => {
-    try {
-      const priceString = updatedProduct.price.toString();
-      await DatabaseService.updateProduct(Number(updatedProduct.id), {
-        title: updatedProduct.title,
-        subtitle: updatedProduct.subtitle,
-        price: priceString,
-        description: updatedProduct.description,
-        visible: updatedProduct.visible,
-        image: updatedProduct.image
-      });
-      await loadProducts();
+    const res = await DataRepository.saveProduct(updatedProduct, Number(updatedProduct.id));
+    if (res.success) {
       setIsEditModalVisible(false);
       setSelectedProductEdit(null);
+      loadProducts();
       Alert.alert("Éxito", "Producto actualizado.");
-    } catch (error) {
-      Alert.alert("Error", "No se pudo actualizar.");
+    } else {
+      Alert.alert("Error", res.error);
     }
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    try {
-      await DatabaseService.deleteProduct(Number(productId));
-      await loadProducts();
+    const res = await DataRepository.deleteProductAdmin(Number(productId));
+    if (res.success) {
       setIsEditModalVisible(false);
       setSelectedProductEdit(null);
-    } catch (error) {
-      Alert.alert("Error", "No se pudo eliminar el producto.");
+      loadProducts();
+    } else {
+      Alert.alert("Error", res.error);
     }
-  };
-
-  const openPromoteModal = (product: Platillo) => {
-    setSelectedProductPromote(product);
-    setIsPromoteModalVisible(true);
   };
 
   const handleSavePromotion = async (productId: string, promoData: any) => {
-    try {
-      await DatabaseService.createPromotion(Number(productId), promoData);
-      Alert.alert("Éxito", "La promoción ha sido actualizada.");
-      setIsPromoteModalVisible(false);
-      setSelectedProductPromote(null);
-      await loadProducts();
-    } catch (error) {
-      Alert.alert("Error", "No se pudo guardar la promoción.");
-    }
+    // Implementar si tienes endpoint de promociones
+    Alert.alert("Info", "Funcionalidad pendiente en backend.");
+    setIsPromoteModalVisible(false);
   };
 
   const handleDeletePromotion = async (productId: string) => {
-    try {
-      await DatabaseService.deletePromotion(Number(productId));
-      Alert.alert("Eliminada", "La promoción ha sido eliminada correctamente.");
-      setIsPromoteModalVisible(false);
-      setSelectedProductPromote(null);
-      await loadProducts();
-    } catch (error) {
-      Alert.alert("Error", "No se pudo eliminar la promoción.");
-    }
+    Alert.alert("Info", "Funcionalidad pendiente en backend.");
+    setIsPromoteModalVisible(false);
   };
 
-  const renderAdminItem = ({ item }: { item: Platillo }) => {
-    const hasPromo = !!item.promotionalPrice; 
+  // --- RENDER ---
 
+  const renderAdminItem = ({ item }: { item: Platillo }) => {
+    const hasPromo = !!item.promotionalPrice;
+    
     return (
-      <View style={[
-        styles.itemCard, 
-        !item.visible && styles.itemCardHidden,
-        hasPromo && styles.promoCard 
-      ]}>
-        
+      <View style={[styles.itemCard, !item.visible && styles.itemCardHidden, hasPromo && styles.promoCard]}>
         <View>
           <Image source={item.image} style={[styles.itemImage, !item.visible && {opacity: 0.5}]} />
-          
-          {!item.visible && (
-            <View style={styles.hiddenLabelContainer}>
-              <Text style={styles.hiddenLabelText}>OCULTO</Text>
-            </View>
-          )}
-
-          {hasPromo && item.visible && (
-            <View style={styles.promoLabelContainer}>
-              <Text style={styles.promoLabelText}>% OFERTA</Text>
-            </View>
-          )}
+          {!item.visible && <View style={styles.hiddenLabelContainer}><Text style={styles.hiddenLabelText}>OCULTO</Text></View>}
+          {hasPromo && <View style={styles.promoLabelContainer}><Text style={styles.promoLabelText}>% OFERTA</Text></View>}
         </View>
 
         <View style={styles.itemTextContainer}>
           <Text style={[styles.itemTitle, !item.visible && {color: '#999'}]}>{item.title}</Text>
           <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
-          
+          {item.description ? (
+            <Text style={{fontSize: 10, color: '#888', marginTop: 1}} numberOfLines={2}>
+              {item.description}
+            </Text>
+          ) : null}
           <View>
-             {hasPromo && (
-                <Text style={styles.oldPriceText}>${item.price}</Text>
-             )}
-             <Text style={[
-               styles.itemPrice, 
-               !item.visible && {color: '#999'},
-               hasPromo && { color: '#2E7D32' }
-             ]}>
+             {hasPromo && <Text style={styles.oldPriceText}>${item.price}</Text>}
+             <Text style={[styles.itemPrice, !item.visible && {color: '#999'}, hasPromo && { color: '#2E7D32' }]}>
                ${hasPromo ? item.promotionalPrice : item.price}
              </Text>
           </View>
         </View>
 
         <View style={styles.itemActionsContainer}>
-          <TouchableOpacity onPress={() => openEditModal(item)} style={{marginBottom: 10}}>
+          <TouchableOpacity onPress={() => { setSelectedProductEdit(item); setIsEditModalVisible(true); }} style={{marginBottom: 10}}>
             <Feather name="edit-2" size={22} color={COLORS.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => openPromoteModal(item)}>
+          <TouchableOpacity onPress={() => { setSelectedProductPromote(item); setIsPromoteModalVisible(true); }}>
             <Ionicons name={hasPromo ? "star" : "star-outline"} size={24} color={hasPromo ? "#FFC107" : COLORS.text} />
           </TouchableOpacity>
         </View>
@@ -231,7 +188,7 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>ComeCon</Text>
+        <Text style={styles.headerTitle}>ComeCon Admin</Text>
         <View style={styles.headerLine} />
       </View>
 
@@ -246,28 +203,30 @@ const HomeAdminScreen: React.FC<HomeAdminScreenProps> = ({ navigation }) => {
             onChangeText={setSearchQuery}
           />
         </View>
-        <TouchableOpacity style={styles.roundAddButton} onPress={openAddModal}>
+        <TouchableOpacity style={styles.roundAddButton} onPress={() => setIsAddModalVisible(true)}>
           <Ionicons name="add" size={30} color={COLORS.text} />
         </TouchableOpacity>
       </View>
       
-      <FlatList
-        data={filteredProducts}
-        renderItem={renderAdminItem}
-        keyExtractor={item => item.id.toString()}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <Text style={{textAlign: 'center', marginTop: 20, color: '#888'}}>
-            {searchQuery ? "No se encontraron productos" : "No hay productos. ¡Agrega uno!"}
-          </Text>
-        }
-      />
+      {loading && !refreshing ? (
+        <ActivityIndicator size="large" color={COLORS.primary} style={{marginTop: 20}} />
+      ) : (
+        <FlatList
+          data={filteredProducts}
+          renderItem={renderAdminItem}
+          keyExtractor={item => item.id.toString()}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={<Text style={{textAlign: 'center', marginTop: 20, color: '#888'}}>No hay productos.</Text>}
+        />
+      )}
 
+      {/* MODALES CONECTADOS */}
       <AddProductModal 
         visible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}
-        onSave={handleAddProduct}
+        onSave={handleAddProduct} 
       />
 
       <EditProductModal
@@ -301,40 +260,14 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, height: 50, paddingLeft: 10, fontSize: FONT_SIZES.medium, color: COLORS.text },
   roundAddButton: { width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: COLORS.text, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   listContainer: { paddingHorizontal: 20, paddingBottom: 100 },
-  
   itemCard: { flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 20, padding: 15, marginBottom: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, alignItems: 'center' },
-  
   itemCardHidden: { backgroundColor: '#F0F0F0', borderColor: '#DDD', borderWidth: 1 },
+  promoCard: { borderWidth: 1.5, borderColor: '#4CAF50', backgroundColor: '#F1F8E9' },
   hiddenLabelContainer: { position: 'absolute', bottom: 5, left: 5, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
   hiddenLabelText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
-
-  promoCard: {
-    borderWidth: 1.5,
-    borderColor: '#4CAF50',
-    backgroundColor: '#F1F8E9',
-  },
-  promoLabelContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderBottomLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  promoLabelText: {
-    color: 'white',
-    fontSize: 9,
-    fontWeight: 'bold',
-  },
-  oldPriceText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    textDecorationLine: 'line-through',
-    marginBottom: -2
-  },
-
+  promoLabelContainer: { position: 'absolute', top: 0, right: 0, backgroundColor: '#4CAF50', paddingHorizontal: 6, paddingVertical: 3, borderBottomLeftRadius: 10, borderTopRightRadius: 10 },
+  promoLabelText: { color: 'white', fontSize: 9, fontWeight: 'bold' },
+  oldPriceText: { fontSize: 12, color: COLORS.textSecondary, textDecorationLine: 'line-through', marginBottom: -2 },
   itemImage: { width: 70, height: 70, borderRadius: 35, marginRight: 15 },
   itemTextContainer: { flex: 1, justifyContent: 'center' },
   itemTitle: { fontSize: FONT_SIZES.medium, fontWeight: 'bold', color: COLORS.text },

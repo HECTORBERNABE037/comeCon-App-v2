@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -9,26 +9,36 @@ import {
   StatusBar, 
   Platform, 
   ActivityIndicator, 
-  Alert 
+  ScrollView,
+  Alert
 } from 'react-native';
 import { useNavigation, useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker'; // Importamos el Picker
 
 import { COLORS, FONT_SIZES, RootStackParamList, ClientTabParamList } from '../../../types';
 import { useAuth } from '../../context/AuthContext';
-import { showImageOptions } from '../../utils/ImagePickerHelper'; 
-import DatabaseService from '../../services/DatabaseService';
+import { DataRepository } from '../../services/DataRepository'; // Importamos Repositorio
 
 type ClientProfileNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<ClientTabParamList, 'ClientProfileTab'>,
   StackNavigationProp<RootStackParamList>
 >;
 
-export const ClientProfileScreen = () => {
+// Helper de imagen robusto
+const resolveImage = (img: any) => {
+  if (img?.uri) return { uri: img.uri };
+  if (typeof img === 'string' && (img.startsWith('http') || img.startsWith('file://'))) return { uri: img };
+  // IMPORTANTE: Asegúrate de que esta ruta a tu logo por defecto sea correcta
+  return require('../../../assets/logoApp.png'); 
+};
+
+const ClientProfileScreen = () => {
   const navigation = useNavigation<ClientProfileNavigationProp>();
   const { user, refreshUser } = useAuth();
+  const [uploading, setUploading] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -40,61 +50,114 @@ export const ClientProfileScreen = () => {
     navigation.navigate('EditClientProfile');
   };
 
-  const handleChangePhoto = () => {
-    // Validar permiso 
-    if (!user?.allowCamera) {
-      Alert.alert("Cámara desactivada", "Habilita la cámara en Configuración para cambiar tu foto.");
-      return;
-    }
-    
-    // Abrir selector de imagen
-    showImageOptions(async (uri) => {
-      // Guardar solo la imagen
-      const success = await DatabaseService.updateUserImage(user.email, uri);
-      
-      if (success) {
-        refreshUser(); 
-        Alert.alert("Éxito", "Foto de perfil actualizada.");
-      } else {
-        Alert.alert("Error", "No se pudo guardar la foto.");
-      }
-    });
+  // === LÓGICA DE CÁMARA/GALERÍA ===
+  const handleCameraPress = async () => {
+    Alert.alert(
+      "Foto de Perfil",
+      "¿Qué deseas hacer?",
+      [
+        {
+          text: "Tomar Foto",
+          onPress: async () => await launchCamera()
+        },
+        {
+          text: "Elegir de Galería",
+          onPress: async () => await launchGallery()
+        },
+        { text: "Cancelar", style: "cancel" }
+      ]
+    );
   };
 
-  if (!user) return <ActivityIndicator size="large" color={COLORS.primary} style={{flex:1}} />;
+  const launchCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert("Permiso denegado", "Se requiere acceso a la cámara.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true, aspect: [1, 1], quality: 0.7,
+    });
+    if (!result.canceled) uploadImage(result.assets[0].uri);
+  };
 
-  const userImage = user.image ? { uri: user.image } : require('../../../assets/logoApp.png');
+  const launchGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert("Permiso denegado", "Se requiere acceso a la galería.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true, aspect: [1, 1], quality: 0.7,
+    });
+    if (!result.canceled) uploadImage(result.assets[0].uri);
+  };
+
+  const uploadImage = async (uri: string) => {
+    setUploading(true);
+    const result = await DataRepository.uploadProfileImage(uri);
+    setUploading(false);
+
+    if (result.success) {
+      await refreshUser(); // Actualizar para ver la nueva imagen
+      Alert.alert("¡Éxito!", "Tu foto de perfil se ha actualizado.");
+    } else {
+      Alert.alert("Error", result.error || "No se pudo subir la imagen.");
+    }
+  };
+
+  if (!user) {
+    return <ActivityIndicator size="large" color={COLORS.primary} style={{flex:1}} />;
+  }
+
+  const userImage = resolveImage(user.image);
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="dark-content" backgroundColor="#F2F2F2" />
       
+      {/* Header Fijo */}
       <View style={styles.headerCard}>
-        <Text style={styles.headerTitle}>Informacion Personal</Text>
+        <Text style={styles.headerTitle}>Información Personal</Text>
         <View style={styles.headerUnderline} />
       </View>
 
-      <View style={styles.content}>
+      {/* ScrollView que envuelve TODO el contenido desplazable */}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         
-        {/* Imagen de Perfil */}
         <View style={styles.profileImageContainer}>
-          <Image source={userImage} style={styles.profileImage} />
+          {uploading ? (
+            <View style={[styles.profileImage, { justifyContent: 'center', alignItems: 'center' }]}>
+              <ActivityIndicator color={COLORS.primary} />
+            </View>
+          ) : (
+            <Image source={userImage} style={styles.profileImage} />
+          )}
           
-          {/* Botón de Cámara */}
-          <TouchableOpacity style={styles.editIconContainer} onPress={handleChangePhoto}>
-             <Feather name="camera" size={16} color={COLORS.text} />
+          {/* Botón de Cámara FUNCIONAL */}
+          <TouchableOpacity style={styles.editIconContainer} onPress={handleCameraPress} disabled={uploading}>
+             <Feather name="camera" size={18} color={COLORS.text} />
           </TouchableOpacity>
         </View>
         
+        {/* Campos de Información */}
         <View style={styles.infoGroup}>
           <Text style={styles.label}>Nombre</Text>
-          <Text style={styles.value}>{user.nombre}</Text>
+          <Text style={styles.value}>{user.nombre || 'Sin nombre'}</Text>
           <View style={styles.separator} />
         </View>
 
+        {user.nickname ? (
+          <View style={styles.infoGroup}>
+            <Text style={styles.label}>Apodo</Text>
+            <Text style={styles.value}>{user.nickname}</Text>
+            <View style={styles.separator} />
+          </View>
+        ) : null}
+
         <View style={styles.infoGroup}>
-          <Text style={styles.label}>Telefono</Text>
-          <Text style={styles.value}>{user.telefono || 'No registrado'}</Text>
+          <Text style={styles.label}>Teléfono</Text>
+          <Text style={styles.value}>{user.phone || 'No registrado'}</Text>
           <View style={styles.separator} />
         </View>
 
@@ -104,25 +167,39 @@ export const ClientProfileScreen = () => {
           <View style={styles.separator} />
         </View>
 
-        {user.address ? (
-            <View style={styles.infoGroup}>
-            <Text style={styles.label}>Dirección</Text>
-            <Text style={styles.value}>{user.address}</Text>
-            <View style={styles.separator} />
-            </View>
+        <View style={styles.infoGroup}>
+          <Text style={styles.label}>Dirección</Text>
+          <Text style={styles.value}>{user.address || 'Sin dirección registrada'}</Text>
+          <View style={styles.separator} />
+        </View>
+
+        {user.gender ? (
+           <View style={styles.infoGroup}>
+             <Text style={styles.label}>Género</Text>
+             <Text style={styles.value}>{user.gender}</Text>
+             <View style={styles.separator} />
+           </View>
+        ) : null}
+        
+        {user.country ? (
+           <View style={styles.infoGroup}>
+             <Text style={styles.label}>País</Text>
+             <Text style={styles.value}>{user.country}</Text>
+             <View style={styles.separator} />
+           </View>
         ) : null}
 
+        {/* Botón Editar (Navega a la otra pantalla) */}
         <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
           <Text style={styles.editButtonText}>EDITAR PERFIL</Text>
         </TouchableOpacity>
 
-      </View>
-      
-
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
+// ESTILOS ORIGINALES CONSERVADOS
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -131,7 +208,7 @@ const styles = StyleSheet.create({
   headerCard: {
     alignItems: 'center',
     marginTop: Platform.OS === 'android' ? 40 : 10,
-    marginBottom: 15,
+    marginBottom: 5, // Reducido un poco el margen inferior
   },
   headerTitle: {
     fontSize: FONT_SIZES.xlarge,
@@ -144,15 +221,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary, 
     marginTop: 5,
   },
-  content: {
-    flex: 1,
+  // Estilo para el contenido del ScrollView
+  scrollContent: {
     paddingHorizontal: 30,
     alignItems: 'center',
+    paddingTop: 15,
+    paddingBottom: 200 // Espacio extra al final para que no se pegue el botón
   },
   profileImageContainer: {
     position: 'relative',
     marginBottom: 30,
-    marginTop: 10,
   },
   profileImage: {
     width: 120,
@@ -166,9 +244,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: COLORS.white,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40, // Aumentado ligeramente para que el icono de cámara se vea mejor
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
@@ -204,7 +282,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 30,
+    marginTop: 20,
     elevation: 3,
   },
   editButtonText: {
@@ -214,3 +292,5 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   }
 });
+
+export default ClientProfileScreen;
